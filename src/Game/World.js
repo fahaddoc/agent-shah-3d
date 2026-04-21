@@ -167,6 +167,9 @@ export class World {
   }
 
   registerColliders(physics) {
+    // Floor collider — wide flat slab below ground level so capsule rests on top
+    const floorProxy = { position: { x: 0, y: -0.5, z: 0 }, uuid: 'floor' }
+    physics.addStaticBox(floorProxy, 200, 1, 200)
     for (const w of this._walls) {
       physics.addStaticBox(w.mesh, w.w, w.h, w.d)
     }
