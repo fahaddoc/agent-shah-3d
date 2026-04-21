@@ -283,6 +283,8 @@ export class Player {
       this.group.position.copy(this.position)
     }
 
+    const speedNow = Math.hypot(this.velocity.x, this.velocity.z)
+    const moving = speedNow > 0.4
     if (moving) {
       const speedRatio = speedNow / this.maxSpeed
       this.walkPhase += delta * (8 + speedRatio * 6)
