@@ -28,11 +28,15 @@ export class World {
     const wallH = 4
     const wallT = 0.6
     const halfSize = 24
+    this._walls = []
     const mkWall = (w, d, x, z) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, wallH, d), wallMat)
       m.position.set(x, wallH / 2, z)
       m.castShadow = true; m.receiveShadow = true
       scene.add(m)
+      const wall = { mesh: m, w, h: wallH, d }
+      this._walls.push(wall)
+      return wall
     }
     // North + side walls solid
     mkWall(halfSize * 2 + wallT, wallT, 0, -halfSize)
@@ -50,6 +54,7 @@ export class World {
     const header = new THREE.Mesh(new THREE.BoxGeometry(doorWidth + 0.4, 0.6, wallT + 0.1), headerMat)
     header.position.set(0, wallH - 0.3, halfSize)
     scene.add(header)
+    this._walls.push({ mesh: header, w: doorWidth + 0.4, h: 0.6, d: wallT + 0.1 })
 
     // Door frame uprights (cyan accent)
     const accentMat = new THREE.MeshBasicMaterial({ color: 0x00ffff })
@@ -117,6 +122,9 @@ export class World {
       )
       cap.position.set(x, wallH - 0.04, z)
       scene.add(cap)
+
+      // collider approximation for pillar (box)
+      this._walls.push({ mesh: p, w: 1.4, h: wallH, d: 1.4 })
     }
 
     // Lights — brighter base for visibility
@@ -156,6 +164,12 @@ export class World {
 
     // Sector marker text on floor (decorative)
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+  }
+
+  registerColliders(physics) {
+    for (const w of this._walls) {
+      physics.addStaticBox(w.mesh, w.w, w.h, w.d)
+    }
   }
 
   setDoorOpen(t) {

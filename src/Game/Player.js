@@ -27,6 +27,11 @@ export class Player {
     this.muzzleWorld = new THREE.Vector3()
     this.walkPhase = 0
 
+    this.physics = null
+    this.physicsBody = null
+    this.physicsCollider = null
+    this.physicsCtrl = null
+
     this.group = new THREE.Group()
     this._buildWick()
     scene.add(this.group)
@@ -232,6 +237,14 @@ export class Player {
     this.group.add(ring)
   }
 
+  registerPhysics(physics) {
+    const r = physics.addKinematicCharacter(this.position, 0.9, 0.4)
+    this.physicsBody = r.body
+    this.physicsCollider = r.collider
+    this.physicsCtrl = r.ctrl
+    this.physics = physics
+  }
+
   update(delta, inputs, raycaster, groundPlane, enemies, onHitEnemy) {
     // Camera-relative input
     const m = inputs.axisMove()
@@ -253,11 +266,22 @@ export class Player {
     this.velocity.x += (tx - this.velocity.x) * k * 2
     this.velocity.z += (tz - this.velocity.z) * k * 2
 
-    this.position.x += this.velocity.x * delta
-    this.position.z += this.velocity.z * delta
-    this.position.x = THREE.MathUtils.clamp(this.position.x, -22, 22)
-    this.position.z = THREE.MathUtils.clamp(this.position.z, -22, 22)
-    this.group.position.copy(this.position)
+    if (this.physicsBody) {
+      const desired = { x: this.velocity.x * delta, y: -0.05, z: this.velocity.z * delta }
+      this.physicsCtrl.computeColliderMovement(this.physicsCollider, desired)
+      const corrected = this.physicsCtrl.computedMovement()
+      const t = this.physicsBody.translation()
+      const next = { x: t.x + corrected.x, y: t.y + corrected.y, z: t.z + corrected.z }
+      this.physicsBody.setNextKinematicTranslation(next)
+      // Sync visual position (subtract 0.9 capsule offset to put feet on ground)
+      this.position.set(next.x, next.y - 0.9, next.z)
+      this.group.position.copy(this.position)
+    } else {
+      // Fallback before physics is ready (intro/init frames)
+      this.position.x += this.velocity.x * delta
+      this.position.z += this.velocity.z * delta
+      this.group.position.copy(this.position)
+    }
 
     if (moving) {
       const speedRatio = speedNow / this.maxSpeed

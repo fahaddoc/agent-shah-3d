@@ -82,6 +82,8 @@ export class Game {
 
   async start() {
     await this.physics.init()
+    this.world.registerColliders(this.physics)
+    this.player.registerPhysics(this.physics)
     this.ui.finishLoader()
     this.ui.setHint('INFILTRATING SECTOR 01…')
     this.ticker.start()
@@ -120,6 +122,9 @@ export class Game {
       this.player.legR.rotation.x = -s
     }
     this.player.group.position.copy(this.player.position)
+    if (this.player.physicsBody) {
+      this.player.physicsBody.setTranslation({ x: this.player.position.x, y: this.player.position.y + 0.9, z: this.player.position.z }, true)
+    }
     this.player.group.rotation.y = 0  // face -Z (into room)
 
     // Door opens when player ~3 units in front of door
