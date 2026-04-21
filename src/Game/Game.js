@@ -9,6 +9,7 @@ import { Enemy } from './Enemy.js'
 import { NPC } from './NPC.js'
 import { UI } from './UI.js'
 import { Physics } from './Physics.js'
+import { AssetLoader } from './AssetLoader.js'
 import { SECTORS } from '../data/portfolio.js'
 
 const PHASE = { INTRO: 'INTRO', PLAY: 'PLAY' }
@@ -24,6 +25,7 @@ export class Game {
     this.canvas = canvas
     this.scene = new THREE.Scene()
     this.physics = new Physics()
+    this.assets = new AssetLoader()
     this.ticker = new Ticker()
     this.inputs = new Inputs(canvas)
     this.renderer = new Renderer(canvas)
