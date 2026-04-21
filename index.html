@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Shah — Classified Portfolio</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div class="hud-top">
+        <div class="hud-block">
+          <span class="hud-label">AGENT</span>
+          <span class="hud-value">SHAH FAHAD</span>
+        </div>
+        <div class="hud-block">
+          <span class="hud-label">SECTOR</span>
+          <span class="hud-value" id="sector-name">01 · BRIEFING ROOM</span>
+        </div>
+        <div class="hud-block">
+          <span class="hud-label">WEAPON</span>
+          <span class="hud-value" id="weapon-name">PISTOL</span>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="health-wrap">
+          <span class="hud-label">HP</span>
+          <div class="health-bar"><div class="health-fill" id="health-fill"></div></div>
+        </div>
+        <div class="hud-hint" id="hud-hint">WASD to move · MOUSE to aim · CLICK to shoot · E to interact</div>
+      </div>
+    </div>
+
+    <div id="briefing" class="hidden">
+      <div class="briefing-panel">
+        <div class="briefing-header">
+          <span class="stamp">TOP SECRET</span>
+          <button id="briefing-close">CLOSE [ESC]</button>
+        </div>
+        <div class="briefing-body" id="briefing-body"></div>
+      </div>
+    </div>
+
+    <div id="loader">
+      <div class="loader-text">DECRYPTING DOSSIER…</div>
+      <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

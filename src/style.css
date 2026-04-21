@@ -1,0 +1,179 @@
+:root {
+  --bg: #080810;
+  --cyan: #00ffff;
+  --amber: #ffb800;
+  --red: #ff3355;
+  --mono: 'Share Tech Mono', 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: #e6f9ff;
+  font-family: var(--mono);
+  overflow: hidden;
+  user-select: none;
+}
+
+#game {
+  position: fixed; inset: 0;
+  width: 100vw; height: 100vh;
+  display: block;
+  cursor: crosshair;
+}
+
+#hud {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: 22px 28px;
+}
+
+.hud-top, .hud-bottom {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 18px; flex-wrap: wrap;
+}
+
+.hud-block {
+  background: rgba(0, 20, 30, 0.55);
+  border: 1px solid rgba(0, 255, 255, 0.35);
+  padding: 8px 14px;
+  display: flex; flex-direction: column;
+  min-width: 160px;
+  backdrop-filter: blur(4px);
+}
+
+.hud-label {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--amber);
+  opacity: 0.85;
+}
+
+.hud-value {
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: var(--cyan);
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+}
+
+.health-wrap { display: flex; flex-direction: column; gap: 6px; min-width: 240px; }
+
+.health-bar {
+  width: 240px; height: 14px;
+  background: rgba(255, 51, 85, 0.15);
+  border: 1px solid rgba(255, 51, 85, 0.5);
+}
+
+.health-fill {
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, var(--red), var(--amber));
+  transition: width 0.25s ease;
+}
+
+.hud-hint {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: rgba(230, 249, 255, 0.7);
+  background: rgba(0, 20, 30, 0.55);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  padding: 8px 14px;
+}
+
+#briefing {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50;
+  padding: 40px 20px;
+  backdrop-filter: blur(6px);
+}
+
+#briefing.hidden { display: none; }
+
+.briefing-panel {
+  width: min(820px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #0c1a22, #050a10);
+  border: 1px solid var(--cyan);
+  box-shadow: 0 0 40px rgba(0, 255, 255, 0.25);
+  padding: 24px 28px;
+}
+
+.briefing-header {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px dashed rgba(0, 255, 255, 0.35);
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+}
+
+.stamp {
+  color: var(--red);
+  border: 2px solid var(--red);
+  padding: 4px 10px;
+  letter-spacing: 4px;
+  font-weight: bold;
+  transform: rotate(-3deg);
+  font-size: 14px;
+}
+
+#briefing-close {
+  background: transparent;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 6px 12px;
+  font-family: var(--mono);
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+
+#briefing-close:hover { background: var(--amber); color: #000; }
+
+.briefing-body h1 { color: var(--cyan); font-size: 26px; letter-spacing: 4px; margin-bottom: 6px; }
+.briefing-body h2 { color: var(--amber); font-size: 14px; letter-spacing: 3px; margin: 18px 0 8px; }
+.briefing-body p  { color: #cfeefb; line-height: 1.7; font-size: 14px; margin-bottom: 8px; }
+.briefing-body ul { list-style: none; padding-left: 0; }
+.briefing-body li { color: #cfeefb; font-size: 14px; padding: 4px 0; border-bottom: 1px dotted rgba(0,255,255,0.15); }
+.briefing-body .stat-row { display: flex; gap: 24px; margin: 14px 0; }
+.briefing-body .stat { flex: 1; text-align: center; border: 1px solid rgba(0,255,255,0.3); padding: 10px; }
+.briefing-body .stat .num { font-size: 28px; color: var(--amber); display: block; }
+.briefing-body .stat .lbl { font-size: 10px; letter-spacing: 2px; color: var(--cyan); }
+
+#loader {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px;
+  z-index: 100;
+  transition: opacity 0.6s ease;
+}
+
+#loader.gone { opacity: 0; pointer-events: none; }
+
+.loader-text {
+  color: var(--cyan);
+  letter-spacing: 6px;
+  font-size: 14px;
+  text-shadow: 0 0 12px var(--cyan);
+}
+
+.loader-bar {
+  width: 280px; height: 6px;
+  background: rgba(0, 255, 255, 0.15);
+  border: 1px solid rgba(0, 255, 255, 0.4);
+}
+
+.loader-fill {
+  width: 0%; height: 100%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  transition: width 0.3s ease;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
