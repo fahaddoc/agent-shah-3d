@@ -8,6 +8,7 @@ import { Player } from './Player.js'
 import { Enemy } from './Enemy.js'
 import { NPC } from './NPC.js'
 import { UI } from './UI.js'
+import { Physics } from './Physics.js'
 import { SECTORS } from '../data/portfolio.js'
 
 const PHASE = { INTRO: 'INTRO', PLAY: 'PLAY' }
@@ -22,6 +23,7 @@ export class Game {
   constructor({ canvas }) {
     this.canvas = canvas
     this.scene = new THREE.Scene()
+    this.physics = new Physics()
     this.ticker = new Ticker()
     this.inputs = new Inputs(canvas)
     this.renderer = new Renderer(canvas)
@@ -78,13 +80,15 @@ export class Game {
     this.ticker.on((d, e) => this._tick(d, e))
   }
 
-  start() {
+  async start() {
+    await this.physics.init()
     this.ui.finishLoader()
     this.ui.setHint('INFILTRATING SECTOR 01…')
     this.ticker.start()
   }
 
   _tick(delta, elapsed) {
+    this.physics.step(delta)
     if (this.ui.isBriefingOpen()) {
       this.renderer.render(this.scene, this.camera.instance)
       return
