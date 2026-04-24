@@ -43,7 +43,8 @@ export class Enemy {
 
     this._buildMesh()
     scene.add(this.group)
-    this._tryLoadGLB()
+    // GLB disabled — procedural low-poly gangster used
+    // this._tryLoadGLB()
   }
 
   _tryLoadGLB() {
@@ -167,33 +168,148 @@ export class Enemy {
     this.group = new THREE.Group()
     this.group.position.copy(this.position)
 
-    const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.42, 1.0, 4, 10),
-      new THREE.MeshStandardMaterial({ color: 0x551122, roughness: 0.7, emissive: 0x220008 })
-    )
-    body.position.y = 0.95
-    body.castShadow = true
-    this.group.add(body)
+    // LOW-POLY gangster (dark crimson suit, red accents)
+    const E_SUIT   = new THREE.MeshStandardMaterial({ color: 0x2a0a10, roughness: 0.6, flatShading: true })
+    const E_SUIT_LT = new THREE.MeshStandardMaterial({ color: 0x3a1118, roughness: 0.6, flatShading: true })
+    const E_SHIRT  = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.75, flatShading: true })
+    const E_TIE    = new THREE.MeshStandardMaterial({ color: 0xaa1122, roughness: 0.4, flatShading: true })
+    const E_SKIN   = new THREE.MeshStandardMaterial({ color: 0xc08866, roughness: 0.85, flatShading: true })
+    const E_HAIR   = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.95, flatShading: true })
+    const E_BEARD  = new THREE.MeshStandardMaterial({ color: 0x180a06, roughness: 0.96, flatShading: true })
 
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3, 14, 14),
-      new THREE.MeshStandardMaterial({ color: 0x882233, emissive: 0x331111 })
-    )
-    head.position.y = 1.9
-    this.group.add(head)
+    // Shoulders + torso
+    const shoulders = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.32, 0.5), E_SUIT)
+    shoulders.position.y = 1.72
+    shoulders.castShadow = true
+    this.group.add(shoulders)
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.48), E_SUIT)
+    torso.position.y = 1.1
+    torso.castShadow = true
+    this.group.add(torso)
 
-    // Gun
+    // Lapels
+    const lapelL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.65, 0.07), E_SUIT_LT)
+    lapelL.position.set(-0.16, 1.4, -0.24)
+    lapelL.rotation.z = 0.22
+    this.group.add(lapelL)
+    const lapelR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.65, 0.07), E_SUIT_LT)
+    lapelR.position.set(0.16, 1.4, -0.24)
+    lapelR.rotation.z = -0.22
+    this.group.add(lapelR)
+
+    // Black shirt + red tie
+    const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.72, 0.07), E_SHIRT)
+    shirt.position.set(0, 1.28, -0.22)
+    this.group.add(shirt)
+    const tieKnot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), E_TIE)
+    tieKnot.position.set(0, 1.6, -0.2)
+    this.group.add(tieKnot)
+    const tieBody = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 0.04), E_TIE)
+    tieBody.position.set(0, 1.2, -0.2)
+    this.group.add(tieBody)
+
+    // Belt
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.08, 0.5), new THREE.MeshStandardMaterial({ color: 0x050505, flatShading: true }))
+    belt.position.y = 0.58
+    this.group.add(belt)
+
+    // Legs
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.0, 0.36), E_SUIT)
+    legL.position.set(-0.18, 0.05, 0)
+    legL.castShadow = true
+    this.group.add(legL)
+    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.0, 0.36), E_SUIT)
+    legR.position.set(0.18, 0.05, 0)
+    legR.castShadow = true
+    this.group.add(legR)
+
+    // Shoes
+    const shoeMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.4, flatShading: true })
+    const shoeL = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.66), shoeMat)
+    shoeL.position.set(-0.18, -0.52, 0.08)
+    this.group.add(shoeL)
+    const shoeR = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.66), shoeMat)
+    shoeR.position.set(0.18, -0.52, 0.08)
+    this.group.add(shoeR)
+
+    // HEAD
+    const headGroup = new THREE.Group()
+    headGroup.position.y = 2.3
+    this.group.add(headGroup)
+
+    const skull = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.68, 0.66), E_SKIN)
+    skull.castShadow = true
+    headGroup.add(skull)
+
+    const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.2, 0.58), E_SKIN)
+    jaw.position.y = -0.38
+    headGroup.add(jaw)
+
+    // Hair — shorter cropped (gangster henchman)
+    const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.18, 0.62), E_HAIR)
+    hairTop.position.y = 0.32
+    headGroup.add(hairTop)
+
+    // Short beard (stubble)
+    const beardFront = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.14), E_BEARD)
+    beardFront.position.set(0, -0.38, -0.28)
+    headGroup.add(beardFront)
+
+    // Eye sockets + pupils
+    const socketMat = new THREE.MeshStandardMaterial({ color: 0x1a0808, flatShading: true })
+    const socketL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.07, 0.05), socketMat)
+    socketL.position.set(-0.14, 0.02, -0.34)
+    headGroup.add(socketL)
+    const socketR = socketL.clone()
+    socketR.position.x = 0.14
+    headGroup.add(socketR)
+
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3322 })  // glowing menacing eyes
+    const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.03), eyeMat)
+    eyeL.position.set(-0.14, 0.02, -0.36)
+    headGroup.add(eyeL)
+    const eyeR = eyeL.clone()
+    eyeR.position.x = 0.14
+    headGroup.add(eyeR)
+
+    // Angled angry brows
+    const browMat = new THREE.MeshStandardMaterial({ color: 0x0a0404, flatShading: true })
+    const browL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.05), browMat)
+    browL.position.set(-0.13, 0.11, -0.35)
+    browL.rotation.z = 0.25
+    headGroup.add(browL)
+    const browR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.05), browMat)
+    browR.position.set(0.13, 0.11, -0.35)
+    browR.rotation.z = -0.25
+    headGroup.add(browR)
+
+    // Nose
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 0.12), E_SKIN)
+    nose.position.set(0, -0.05, -0.39)
+    headGroup.add(nose)
+
+    // Gun held forward
     this.armPivot = new THREE.Group()
-    this.armPivot.position.set(0.28, 1.35, 0)
+    this.armPivot.position.set(0.26, 1.42, 0)
     this.group.add(this.armPivot)
-    const gun = new THREE.Mesh(
-      new THREE.BoxGeometry(0.18, 0.2, 0.7),
-      new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.6 })
+    const gunBody = new THREE.Mesh(
+      new THREE.BoxGeometry(0.16, 0.2, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x18181c, metalness: 0.75, flatShading: true })
     )
-    gun.position.z = -0.5
-    this.armPivot.add(gun)
+    gunBody.position.z = -0.4
+    this.armPivot.add(gunBody)
+    const gunSlide = new THREE.Mesh(
+      new THREE.BoxGeometry(0.14, 0.08, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x52525a, metalness: 0.85, flatShading: true })
+    )
+    gunSlide.position.set(0, 0.08, -0.4)
+    this.armPivot.add(gunSlide)
+    // Arm
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.8), E_SUIT)
+    arm.position.set(0, 0, -0.08)
+    this.armPivot.add(arm)
     this.muzzle = new THREE.Object3D()
-    this.muzzle.position.set(0, 0, -0.9)
+    this.muzzle.position.set(0, 0, -0.72)
     this.armPivot.add(this.muzzle)
 
     // Vision cone — built directly in XZ plane, forward = -Z (matches logic)

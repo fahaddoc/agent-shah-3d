@@ -9,15 +9,19 @@ const PLAYER_AVATAR_URL = null
 const ANIM_SOURCE_URL   = '/assets/models/agent.glb'  // Soldier provides idle/walk/run/die clips
 
 // Materials reused
-const SUIT  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, roughness: 0.55, metalness: 0.05 })
-const SHIRT = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.7 })
-const TIE   = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, roughness: 0.4 })
-const SKIN  = new THREE.MeshStandardMaterial({ color: 0xe2b48a, roughness: 0.85 })
-const HAIR  = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.9 })
-const BEARD = new THREE.MeshStandardMaterial({ color: 0x150a08, roughness: 0.95 })
-const GUN   = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.7, roughness: 0.35 })
-const GUN_ACCENT = new THREE.MeshStandardMaterial({ color: 0x6a6a6e, metalness: 0.8, roughness: 0.3 })
-const BLOOD = new THREE.MeshStandardMaterial({ color: 0x6e0a14, roughness: 0.9 })
+const SUIT  = new THREE.MeshStandardMaterial({ color: 0x121318, roughness: 0.65, metalness: 0.05, flatShading: true })
+const SUIT_LT = new THREE.MeshStandardMaterial({ color: 0x1d2029, roughness: 0.65, flatShading: true })
+const SHIRT = new THREE.MeshStandardMaterial({ color: 0xe8e8eb, roughness: 0.75, flatShading: true })
+const TIE   = new THREE.MeshStandardMaterial({ color: 0x050507, roughness: 0.4, flatShading: true })
+const SKIN  = new THREE.MeshStandardMaterial({ color: 0xdba07a, roughness: 0.85, flatShading: true })
+const SKIN_SHADOW = new THREE.MeshStandardMaterial({ color: 0xa67556, roughness: 0.9, flatShading: true })
+const HAIR  = new THREE.MeshStandardMaterial({ color: 0x0e0a0c, roughness: 0.95, flatShading: true })
+const BEARD = new THREE.MeshStandardMaterial({ color: 0x180c0a, roughness: 0.96, flatShading: true })
+const GUN   = new THREE.MeshStandardMaterial({ color: 0x18181c, metalness: 0.75, roughness: 0.3, flatShading: true })
+const GUN_ACCENT = new THREE.MeshStandardMaterial({ color: 0x52525a, metalness: 0.85, roughness: 0.25, flatShading: true })
+const BLOOD = new THREE.MeshStandardMaterial({ color: 0x5c0810, roughness: 0.9 })
+const BELT  = new THREE.MeshStandardMaterial({ color: 0x050507, roughness: 0.5, flatShading: true })
+const SHOE  = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.35, metalness: 0.15, flatShading: true })
 
 export class Player {
   constructor(scene) {
@@ -43,149 +47,184 @@ export class Player {
     this.group = new THREE.Group()
     this._buildWick()
     scene.add(this.group)
-    this._tryLoadGLB()
+    // GLB disabled — procedural low-poly Wick used instead
+    // this._tryLoadGLB()
 
     this.bulletGeo = new THREE.SphereGeometry(0.08, 8, 8)
     this.bulletMat = new THREE.MeshBasicMaterial({ color: 0xffd44d })
   }
 
   _buildWick() {
-    // Slightly less chibi — taller body for John Wick silhouette
-    // Lapels (suit jacket open look)
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.3, 0.55), SUIT)
-    torso.position.y = 1.05
+    // LOW-POLY Wick — angular blocky forms, flat shaded, taller adult proportions
+
+    // Torso — tapered jacket (wider shoulders, narrower waist)
+    const shoulders = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.35, 0.55), SUIT)
+    shoulders.position.y = 1.75
+    shoulders.castShadow = true
+    this.group.add(shoulders)
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 0.5), SUIT)
+    torso.position.y = 1.12
     torso.castShadow = true
     this.group.add(torso)
 
-    // Lapel triangles (left + right) — Wick suit detail
-    const lapelGeo = new THREE.BoxGeometry(0.18, 0.55, 0.06)
-    const lapelL = new THREE.Mesh(lapelGeo, SUIT)
-    lapelL.position.set(-0.22, 1.4, -0.31)
-    lapelL.rotation.z = 0.2
+    // Lapel V (two angled wedges — clear suit silhouette)
+    const lapelGeo = new THREE.BoxGeometry(0.12, 0.7, 0.08)
+    const lapelL = new THREE.Mesh(lapelGeo, SUIT_LT)
+    lapelL.position.set(-0.18, 1.42, -0.27)
+    lapelL.rotation.z = 0.22
     this.group.add(lapelL)
-    const lapelR = new THREE.Mesh(lapelGeo, SUIT)
-    lapelR.position.set(0.22, 1.4, -0.31)
-    lapelR.rotation.z = -0.2
+    const lapelR = new THREE.Mesh(lapelGeo, SUIT_LT)
+    lapelR.position.set(0.18, 1.42, -0.27)
+    lapelR.rotation.z = -0.22
     this.group.add(lapelR)
 
-    // V-collar white shirt
-    const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.85, 0.06), SHIRT)
-    shirt.position.set(0, 1.3, -0.29)
+    // White shirt V (visible between lapels)
+    const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.75, 0.08), SHIRT)
+    shirt.position.set(0, 1.3, -0.25)
     this.group.add(shirt)
 
-    // Slim black tie (Wick signature)
-    const tieKnot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.13, 0.05), TIE)
-    tieKnot.position.set(0, 1.62, -0.32)
+    // Slim black tie
+    const tieKnot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.13, 0.06), TIE)
+    tieKnot.position.set(0, 1.63, -0.23)
     this.group.add(tieKnot)
-    const tieBody = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.85, 0.04), TIE)
-    tieBody.position.set(0, 1.15, -0.32)
+    const tieBody = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.72, 0.05), TIE)
+    tieBody.position.set(0, 1.2, -0.23)
     this.group.add(tieBody)
 
-    // Subtle blood splatter
-    const blood = new THREE.Mesh(new THREE.CircleGeometry(0.06, 12), BLOOD)
-    blood.position.set(0.10, 1.25, -0.33)
-    blood.rotation.y = Math.PI
-    this.group.add(blood)
-
     // Belt
-    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.1, 0.6), new THREE.MeshStandardMaterial({ color: 0x050507 }))
-    belt.position.y = 0.42
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.09, 0.55), BELT)
+    belt.position.y = 0.55
     this.group.add(belt)
 
-    // Pants — slimmer, longer
-    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.36, 1.0, 0.4), SUIT)
-    legL.position.set(-0.22, -0.08, 0)
+    // Pants — longer, slimmer
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.34, 1.05, 0.38), SUIT)
+    legL.position.set(-0.2, 0.0, 0)
     legL.castShadow = true
     this.group.add(legL)
-    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.36, 1.0, 0.4), SUIT)
-    legR.position.set(0.22, -0.08, 0)
+    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.34, 1.05, 0.38), SUIT)
+    legR.position.set(0.2, 0.0, 0)
     legR.castShadow = true
     this.group.add(legR)
     this.legL = legL; this.legR = legR
 
-    // Dress shoes — pointier
-    const shoeMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.4, metalness: 0.1 })
-    const shoeL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.7), shoeMat)
-    shoeL.position.set(-0.22, -0.62, 0.06)
+    // Pointy dress shoes
+    const shoeL = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.14, 0.72), SHOE)
+    shoeL.position.set(-0.2, -0.6, 0.1)
     this.group.add(shoeL)
-    const shoeR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.7), shoeMat)
-    shoeR.position.set(0.22, -0.62, 0.06)
+    const shoeR = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.14, 0.72), SHOE)
+    shoeR.position.set(0.2, -0.6, 0.1)
     this.group.add(shoeR)
     this.shoeL = shoeL; this.shoeR = shoeR
 
-    // HEAD GROUP — slightly smaller than chibi
+    // HEAD GROUP
     const head = new THREE.Group()
-    head.position.y = 2.25
+    head.position.y = 2.35
     this.group.add(head)
     this.head = head
 
-    // Skull
-    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.42, 22, 22), SKIN)
+    // Angular skull (box, not sphere — matches low-poly reference)
+    const skull = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.75, 0.72), SKIN)
+    skull.castShadow = true
     head.add(skull)
 
-    // Hair — long swept-back Wick style
-    const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.44, 22, 22, 0, Math.PI * 2, 0, Math.PI * 0.55), HAIR)
-    hairTop.position.y = 0.04
+    // Jaw (slightly narrower below skull)
+    const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.22, 0.64), SKIN_SHADOW)
+    jaw.position.set(0, -0.42, 0.0)
+    head.add(jaw)
+
+    // Cheekbones (angled boxes on sides)
+    const cheekL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.3), SKIN_SHADOW)
+    cheekL.position.set(-0.33, -0.15, -0.1)
+    cheekL.rotation.y = 0.2
+    head.add(cheekL)
+    const cheekR = cheekL.clone()
+    cheekR.position.x = 0.33
+    cheekR.rotation.y = -0.2
+    head.add(cheekR)
+
+    // Slicked-back hair — big angular wedge sitting high on top
+    const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.28, 0.5), HAIR)
+    hairTop.position.set(0, 0.4, 0.08)
     head.add(hairTop)
-    // Front swept tuft (slicked back)
-    const tuft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.18), HAIR)
-    tuft.position.set(0, 0.32, -0.18)
-    tuft.rotation.x = 0.6
-    head.add(tuft)
-    // Sides
-    const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.36, 0.42), HAIR)
-    sideL.position.set(-0.36, 0.05, 0)
-    head.add(sideL)
-    const sideR = sideL.clone()
-    sideR.position.x = 0.36
-    head.add(sideR)
-    // Long back hair (Wick signature)
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.16), HAIR)
-    back.position.set(0, -0.05, 0.32)
-    head.add(back)
-    // Hair below shoulders
-    const backLong = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.5, 0.12), HAIR)
-    backLong.position.set(0, -0.42, 0.34)
-    head.add(backLong)
+    // Front swept shape (angled forward)
+    const hairFront = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.22), HAIR)
+    hairFront.position.set(0, 0.38, -0.28)
+    hairFront.rotation.x = 0.3
+    head.add(hairFront)
+    // Side temples
+    const hairSideL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.52, 0.54), HAIR)
+    hairSideL.position.set(-0.36, 0.08, 0.0)
+    head.add(hairSideL)
+    const hairSideR = hairSideL.clone()
+    hairSideR.position.x = 0.36
+    head.add(hairSideR)
+    // Long back (trademark swept mane)
+    const hairBack = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.18), HAIR)
+    hairBack.position.set(0, -0.05, 0.42)
+    head.add(hairBack)
+    const hairBackLong = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.14), HAIR)
+    hairBackLong.position.set(0, -0.48, 0.4)
+    head.add(hairBackLong)
 
-    // Beard — fuller cleaner Wick scruff
-    const beard = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 0.22), BEARD)
-    beard.position.set(0, -0.24, -0.24)
-    head.add(beard)
-    const stache = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.05, 0.08), BEARD)
-    stache.position.set(0, -0.06, -0.4)
+    // Beard — full Wick scruff (low-poly angular)
+    const beardFront = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.2), BEARD)
+    beardFront.position.set(0, -0.42, -0.3)
+    head.add(beardFront)
+    const beardSideL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.32, 0.3), BEARD)
+    beardSideL.position.set(-0.28, -0.3, -0.15)
+    head.add(beardSideL)
+    const beardSideR = beardSideL.clone()
+    beardSideR.position.x = 0.28
+    head.add(beardSideR)
+    // Stubble on upper cheek
+    const stubbleL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.2), BEARD)
+    stubbleL.position.set(-0.3, -0.12, -0.3)
+    head.add(stubbleL)
+    const stubbleR = stubbleL.clone()
+    stubbleR.position.x = 0.3
+    head.add(stubbleR)
+    // Mustache
+    const stache = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.08), BEARD)
+    stache.position.set(0, -0.2, -0.4)
     head.add(stache)
-    const beardL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.18), BEARD)
-    beardL.position.set(-0.24, -0.14, -0.18)
-    head.add(beardL)
-    const beardR = beardL.clone()
-    beardR.position.x = 0.24
-    head.add(beardR)
 
-    // Eyes (intense dark)
+    // Eye sockets (dark recess)
+    const eyeBox = new THREE.MeshStandardMaterial({ color: 0x1a0f0a, flatShading: true })
+    const socketL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.05), eyeBox)
+    socketL.position.set(-0.15, 0.04, -0.37)
+    head.add(socketL)
+    const socketR = socketL.clone()
+    socketR.position.x = 0.15
+    head.add(socketR)
+
+    // Eye pupils (tiny dark)
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 })
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), eyeMat)
-    eyeL.position.set(-0.13, 0.02, -0.39)
+    const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.04), eyeMat)
+    eyeL.position.set(-0.15, 0.03, -0.4)
     head.add(eyeL)
     const eyeR = eyeL.clone()
-    eyeR.position.x = 0.13
+    eyeR.position.x = 0.15
     head.add(eyeR)
 
-    // Brows
-    const browMat = new THREE.MeshStandardMaterial({ color: 0x0a0608 })
-    const browL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.03), browMat)
-    browL.position.set(-0.13, 0.08, -0.4)
-    browL.rotation.z = -0.15
+    // Angled brows (slight inward tilt — Wick's focused look)
+    const browMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, flatShading: true })
+    const browL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.06), browMat)
+    browL.position.set(-0.14, 0.15, -0.38)
+    browL.rotation.z = -0.18
     head.add(browL)
-    const browR = browL.clone()
-    browR.position.x = 0.13
-    browR.rotation.z = 0.15
+    const browR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.06), browMat)
+    browR.position.set(0.14, 0.15, -0.38)
+    browR.rotation.z = 0.18
     head.add(browR)
 
-    // Nose
-    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.12), SKIN)
-    nose.position.set(0, -0.07, -0.41)
+    // Angular nose (ridge + tip)
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.14), SKIN)
+    nose.position.set(0, -0.05, -0.42)
     head.add(nose)
+    const noseTip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.08), SKIN_SHADOW)
+    noseTip.position.set(0, -0.14, -0.45)
+    head.add(noseTip)
 
     // Two-hand pistol arms (low-ready tactical stance)
     this.armRig = new THREE.Group()
