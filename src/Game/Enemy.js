@@ -420,10 +420,9 @@ export class Enemy {
 
   update(delta, playerPos, camera, onHitPlayer, allEnemies = null) {
     this._allEnemies = allEnemies
-    // Freeze FIRST before mixer/AI — stops walking during takedown
-    if (this._frozenForTakedown) {
-      // Pause all animations — no mixer update
-      if (this.hpBar) this.hpBar.lookAt(camera.position)
+    // Freeze during takedown OR after death — no mixer, body stays still
+    if (this._frozenForTakedown || !this.alive) {
+      if (this.alive && this.hpBar) this.hpBar.lookAt(camera.position)
       return
     }
     if (this.mixer) this.mixer.update(delta)
