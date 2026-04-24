@@ -702,13 +702,15 @@ export class Player {
         w.rotation.set(0, Math.PI, 0)
         w.scale.setScalar(0.33)
       }
-      // Pencil stab thrust animation — forward push for 150ms
+      // Pencil stab thrust animation — bigger forward pulse + slight down angle for stab feel
       const pencil = this.weapons.pencil
       if (pencil?.userData.stabTime > 0) {
         pencil.userData.stabTime -= delta
         const t = Math.max(0, pencil.userData.stabTime)
-        const thrust = Math.sin((1 - t / 0.15) * Math.PI) * 0.25  // forward pulse
+        const progress = 1 - t / 0.3
+        const thrust = Math.sin(progress * Math.PI) * 0.5   // stronger forward push
         pencil.position.z -= thrust
+        pencil.rotation.x = -Math.sin(progress * Math.PI) * 0.4  // tip dips down like stabbing
       }
     }
 
@@ -727,7 +729,7 @@ export class Player {
         if (this.actions.dodge) this._playOneShot('dodge')
         else if (this.actions.run) this._switchTo('run', 0.05)
         setTimeout(() => { this._dodging = false }, 450)
-      } else if (!this._dodging && !this._firing && !this._stabbing) {
+      } else if (!this._dodging && !this._firing) {
         const base = moving ? (speedNow > 5.5 ? 'run' : 'walk') : 'idle'
         this._switchTo(base)
         if (this._currentAction) this._currentAction.timeScale = (speedNow > 5.5) ? 1.7 : 1.0
@@ -857,16 +859,9 @@ export class Player {
       target = e
     }
     if (target) onHitEnemy(target, 80, enemies)
-    // Play stab animation (upper-body thrust)
-    if (this.actions?.stab && !this._stabbing) {
-      this._stabbing = true
-      this._playOneShot('stab', 0.05)
-      clearTimeout(this._stabTimeout)
-      this._stabTimeout = setTimeout(() => { this._stabbing = false }, 550)
-    }
-    // Pencil visual thrust fallback
+    // Pencil mesh thrust forward — visual stab (Mixamo anim disabled: causes T-pose on Joe skeleton)
     const w = this.weapons?.pencil
-    if (w) w.userData.stabTime = 0.25
+    if (w) w.userData.stabTime = 0.3
   }
 
   shoot() {
