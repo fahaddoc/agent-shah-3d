@@ -614,19 +614,10 @@ export class Player {
         else if (this.actions.run) this._switchTo('run', 0.05)
         setTimeout(() => { this._dodging = false }, 450)
       } else if (!this._dodging) {
-        // Fire = additive/one-shot (does not replace movement anim). Moving anim always runs.
+        // Only idle/walk/run — no fire anim interruption (bullets still fire via shoot())
         const base = moving ? (speedNow > 5.5 ? 'run' : 'walk') : 'idle'
         this._switchTo(base)
         if (this._currentAction) this._currentAction.timeScale = (speedNow > 5.5) ? 1.7 : 1.0
-        if (wantFireNow && this.actions.fire && this.fireCooldown > 0.1) {
-          // Play fire once per shot (trigger only when a new shot just fired)
-          if (!this._fireTriggeredThisShot) {
-            this._playOneShot('fire', 0.08)
-            this._fireTriggeredThisShot = true
-          }
-        } else {
-          this._fireTriggeredThisShot = false
-        }
       }
     }
     if (moving) {
