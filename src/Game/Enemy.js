@@ -196,7 +196,8 @@ export class Enemy {
     return dotN < -0.3   // player is on opposite side of facing
   }
 
-  update(delta, playerPos, camera, onHitPlayer) {
+  update(delta, playerPos, camera, onHitPlayer, allEnemies = null) {
+    this._allEnemies = allEnemies
     if (!this.alive) {
       this._updateBullets(delta, playerPos, onHitPlayer)
       return
@@ -338,12 +339,29 @@ export class Enemy {
       const b = this.bullets[i]
       b.life -= delta
       b.mesh.position.addScaledVector(b.dir, b.speed * delta)
-      const dx = b.mesh.position.x - playerPos.x
-      const dz = b.mesh.position.z - playerPos.z
-      if (Math.hypot(dx, dz) < 0.7) {
+
+      // Player hit
+      const pdx = b.mesh.position.x - playerPos.x
+      const pdz = b.mesh.position.z - playerPos.z
+      if (Math.hypot(pdx, pdz) < 0.7) {
         onHitPlayer(this, 8)
         b.life = 0
       }
+
+      // Friendly-fire: any OTHER alive enemy hit = instant kill
+      if (b.life > 0 && this._allEnemies) {
+        for (const e of this._allEnemies) {
+          if (e === this || !e.alive) continue
+          const dx = b.mesh.position.x - e.position.x
+          const dz = b.mesh.position.z - e.position.z
+          if (Math.hypot(dx, dz) < 1.0) {
+            e.silentKill()
+            b.life = 0
+            break
+          }
+        }
+      }
+
       if (b.life <= 0) {
         this.scene.remove(b.mesh)
         this.bullets.splice(i, 1)

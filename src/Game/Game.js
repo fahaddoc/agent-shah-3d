@@ -164,7 +164,7 @@ export class Game {
     // Update NPC + enemies (background)
     this.npc.update(delta, elapsed, this.player.position)
     for (const en of this.enemies) {
-      en.update(delta, this.player.position, this.camera.instance, () => {})
+      en.update(delta, this.player.position, this.camera.instance, () => {}, this.enemies)
     }
   }
 
@@ -186,7 +186,7 @@ export class Game {
     for (const en of this.enemies) {
       en.update(delta, this.player.position, this.camera.instance, (e, dmg) => {
         this.player.takeDamage(dmg)
-      })
+      }, this.enemies)
     }
 
     this.npc.update(delta, elapsed, this.player.position)
