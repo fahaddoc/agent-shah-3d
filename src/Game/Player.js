@@ -50,12 +50,37 @@ export class Player {
     this.physicsCtrl = null
 
     this.group = new THREE.Group()
-    this._buildWick()
     scene.add(this.group)
+    // Minimal procedural stub — just muzzle/flash/ring — hidden once GLB loads
+    this._buildStub()
     this._tryLoadGLB()
 
     this.bulletGeo = new THREE.SphereGeometry(0.08, 8, 8)
     this.bulletMat = new THREE.MeshBasicMaterial({ color: 0xffd44d })
+  }
+
+  _buildStub() {
+    // Muzzle + flash (temporary — hand-bone pistol overrides these after GLB load)
+    this.muzzle = new THREE.Object3D()
+    this.muzzle.position.set(0.3, 1.4, -0.5)
+    this.group.add(this.muzzle)
+    this.flash = new THREE.Mesh(
+      new THREE.SphereGeometry(0.14, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffd44d, transparent: true, opacity: 0 })
+    )
+    this.flash.position.copy(this.muzzle.position)
+    this.group.add(this.flash)
+    // Legs/shoes/head as no-op stubs so update() doesn't crash if anims don't fire
+    const noop = new THREE.Object3D()
+    this.legL = noop; this.legR = noop; this.shoeL = noop; this.shoeR = noop; this.head = noop
+    // Aim ring on ground
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.55, 0.7, 32),
+      new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+    )
+    ring.rotation.x = -Math.PI / 2
+    ring.position.y = 0.02
+    this.group.add(ring)
   }
 
   _buildWick() {
