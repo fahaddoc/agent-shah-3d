@@ -335,14 +335,15 @@ export class Player {
     // Load Joe-walking + Joe-idle + fire anims in parallel
     const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
     Promise.all([
-      loadGLB('/assets/models/agent.glb'),                        // Joe + walk clip
-      loadGLB('/assets/models/anim-idle.glb').catch(() => null),  // Joe + idle clip
-      loadGLB('/assets/models/anim-fire.glb').catch(() => null)   // Firing Rifle clip
-    ]).then(([gltf, idleGltf, fireGltf]) => this._handleJoeLoaded(gltf, idleGltf, fireGltf))
+      loadGLB('/assets/models/agent.glb'),
+      loadGLB('/assets/models/anim-idle.glb').catch(() => null),
+      loadGLB('/assets/models/anim-fire.glb').catch(() => null),
+      loadGLB('/assets/models/anim-stab.glb').catch(() => null)
+    ]).then(([gltf, idleGltf, fireGltf, stabGltf]) => this._handleJoeLoaded(gltf, idleGltf, fireGltf, stabGltf))
     return
   }
 
-  _handleJoeLoaded(gltf, idleGltf, fireGltf) {
+  _handleJoeLoaded(gltf, idleGltf, fireGltf, stabGltf) {
     {
         // Hide procedural parts (keep ring on ground)
         for (const child of [...this.group.children]) {
@@ -417,6 +418,7 @@ export class Player {
         this.actions.run   = this.actions.walk
         this.actions.idle  = makeAction(idleGltf?.animations?.[0], 'idle', true) || this.actions.walk
         this.actions.fire  = makeAction(fireGltf?.animations?.[0], 'fire', false)
+        this.actions.stab  = makeAction(stabGltf?.animations?.[0], 'stab', false)
         this.actions.dodge = this.actions.run
 
         this._switchTo('idle')
@@ -725,7 +727,7 @@ export class Player {
         if (this.actions.dodge) this._playOneShot('dodge')
         else if (this.actions.run) this._switchTo('run', 0.05)
         setTimeout(() => { this._dodging = false }, 450)
-      } else if (!this._dodging && !this._firing) {
+      } else if (!this._dodging && !this._firing && !this._stabbing) {
         const base = moving ? (speedNow > 5.5 ? 'run' : 'walk') : 'idle'
         this._switchTo(base)
         if (this._currentAction) this._currentAction.timeScale = (speedNow > 5.5) ? 1.7 : 1.0
@@ -841,7 +843,6 @@ export class Player {
   }
 
   _stabMelee(enemies, onHitEnemy) {
-    // Quick pencil thrust forward + damage to closest enemy within 2m arc in front
     const STAB_RANGE = 2.0
     let target = null, bestDist = STAB_RANGE
     for (const e of enemies) {
@@ -850,19 +851,22 @@ export class Player {
       const dz = e.position.z - this.position.z
       const d = Math.hypot(dx, dz)
       if (d > bestDist) continue
-      // Must be in front (within 100° forward cone)
       const dot = (dx * this.aim.x + dz * this.aim.z) / (d || 1)
       if (dot < 0.3) continue
       bestDist = d
       target = e
     }
     if (target) onHitEnemy(target, 80, enemies)
-
-    // Visual thrust: push pencil mesh forward briefly
-    const w = this.weapons?.pencil
-    if (w) {
-      w.userData.stabTime = 0.15
+    // Play stab animation (upper-body thrust)
+    if (this.actions?.stab && !this._stabbing) {
+      this._stabbing = true
+      this._playOneShot('stab', 0.05)
+      clearTimeout(this._stabTimeout)
+      this._stabTimeout = setTimeout(() => { this._stabbing = false }, 550)
     }
+    // Pencil visual thrust fallback
+    const w = this.weapons?.pencil
+    if (w) w.userData.stabTime = 0.25
   }
 
   shoot() {
