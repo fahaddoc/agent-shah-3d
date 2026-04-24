@@ -423,12 +423,9 @@ export class Enemy {
     this._allEnemies = allEnemies
     if (this.mixer) this.mixer.update(delta)
 
-    // Sync pistol POSITION to right-hand; rotation locked to character forward
-    if (this.pistolMesh && this.rightHandBone) {
-      const pos = new THREE.Vector3()
-      this.rightHandBone.getWorldPosition(pos)
-      this.group.worldToLocal(pos)
-      this.pistolMesh.position.copy(pos)
+    // Pistol pinned at tactical hold position (forward from chest)
+    if (this.pistolMesh) {
+      this.pistolMesh.position.set(0.15, 1.4, -0.55)
       this.pistolMesh.rotation.set(0, Math.PI, 0)
     }
     if (!this.alive) {

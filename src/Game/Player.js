@@ -604,14 +604,10 @@ export class Player {
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
 
-    // Sync pistol POSITION to right-hand (rotation stays aligned with character forward)
-    if (this.pistolMesh && this.rightHandBone) {
-      const pos = new THREE.Vector3()
-      this.rightHandBone.getWorldPosition(pos)
-      this.group.worldToLocal(pos)
-      this.pistolMesh.position.copy(pos)
-      // Orientation: identity — pistol barrel points character-forward (-Z local in group)
-      this.pistolMesh.rotation.set(0, Math.PI, 0)
+    // Pistol pinned at forward extended hand position — matches Pistol Idle/Walk tactical stance
+    if (this.pistolMesh) {
+      this.pistolMesh.position.set(0.15, 1.4, -0.55)   // right hand, chest height, forward
+      this.pistolMesh.rotation.set(0, Math.PI, 0)       // barrel along -Z (character forward)
     }
 
     // Anim state machine (GLB only)
