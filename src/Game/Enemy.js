@@ -53,116 +53,75 @@ export class Enemy {
   _tryLoadGLB() {
     const loader = new GLTFLoader()
     loader.setDRACOLoader(ENEMY_DRACO)
-    loader.load(
-      '/assets/models/enemy.glb',
-      (gltf) => {
-        const keep = new Set([this.hpBar, this.visionMesh, this.alertIcon])
-        for (const child of [...this.group.children]) {
-          if (!keep.has(child)) child.visible = false
-        }
-        const model = gltf.scene
-        model.scale.setScalar(1.2)
-        // Hide visor + strip textures + dark crimson suit for gangster enemy look
-        model.traverse(o => {
-          if (!o.isMesh) return
-          o.castShadow = true
-          o.receiveShadow = true
-          const lname = (o.name || '').toLowerCase()
-          const matName = (o.material?.name || '').toLowerCase()
-          if (lname.includes('visor') || lname.includes('helmet') || lname.includes('goggles') ||
-              lname.includes('joint') || lname.includes('bone') ||
-              matName.includes('joint') || matName.includes('bone')) {
-            o.visible = false
-            return
-          }
-          if (o.material) {
-            const mat = o.material.clone()
-            if (mat.color) mat.color.setHex(0x1a0608)  // dark blood-crimson suit
-            if (mat.map) mat.map = null
-            if (mat.normalMap) mat.normalMap = null
-            if (mat.roughnessMap) mat.roughnessMap = null
-            if (mat.metalnessMap) mat.metalnessMap = null
-            mat.roughness = 0.55
-            mat.metalness = 0.1
-            if (mat.emissive) mat.emissive.setHex(0x220000)
-            o.material = mat
-          }
-        })
+    const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
+    Promise.all([
+      loadGLB('/assets/models/enemy.glb'),                    // Josh + Pistol Walk
+      loadGLB('/assets/models/enemy-idle.glb').catch(() => null)  // Josh + Pistol Idle
+    ]).then(([walkGltf, idleGltf]) => this._handleJoshLoaded(walkGltf, idleGltf))
+      .catch(() => {})
+  }
 
-        // White shirt + red tie for enemy (gangster look)
-        let spine = null, enemyHead = null, enemyHand = null
-        model.traverse(o => {
-          if (o.name === 'mixamorig:Spine2' || o.name === 'mixamorig:Spine1') spine = spine || o
-          if (o.name === 'mixamorig:Head') enemyHead = o
-          if (o.name === 'mixamorig:RightHand') enemyHand = o
-        })
-        if (spine) {
-          const shirt = new THREE.Mesh(
-            new THREE.BoxGeometry(30, 45, 5),
-            new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.7 })
-          )
-          shirt.position.set(0, 10, 12)
-          spine.add(shirt)
-          const tie = new THREE.Mesh(
-            new THREE.BoxGeometry(5, 50, 1.5),
-            new THREE.MeshStandardMaterial({ color: 0x880000, roughness: 0.4 })
-          )
-          tie.position.set(0, 7, 14)
-          spine.add(tie)
-        }
-        if (enemyHead) {
-          const hairMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.92 })
-          const cap = new THREE.Mesh(new THREE.SphereGeometry(11, 18, 18, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat)
-          cap.position.set(0, 6, 2)
-          enemyHead.add(cap)
-        }
-        // Enemy hand pistol — meters scale
-        if (enemyHand) {
-          const pistol = new THREE.Group()
-          const body = new THREE.Mesh(
-            new THREE.BoxGeometry(0.04, 0.06, 0.16),
-            new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6 })
-          )
-          body.position.set(0, 0.02, -0.1)
-          pistol.add(body)
-          const muzzle = new THREE.Object3D()
-          muzzle.position.set(0, 0.02, -0.18)
-          pistol.add(muzzle)
-          pistol.rotation.y = Math.PI / 2
-          enemyHand.add(pistol)
-          this.muzzle = muzzle
-        }
-        this.group.add(model)
+  _handleJoshLoaded(walkGltf, idleGltf) {
+    const keep = new Set([this.hpBar, this.visionMesh, this.alertIcon])
+    for (const child of [...this.group.children]) {
+      if (!keep.has(child)) child.visible = false
+    }
+    const model = walkGltf.scene
+    model.scale.setScalar(1.2)
+    model.rotation.y = Math.PI  // Josh default front = +Z, rotate to -Z convention
+    model.traverse(o => {
+      if (!o.isMesh) return
+      o.castShadow = true
+      o.receiveShadow = true
+      // Keep Josh's original textures (dark jacket + jeans)
+    })
 
-        // (pistol already attached above via enemyHand)
-        if (gltf.animations && gltf.animations.length) {
-          this.mixer = new THREE.AnimationMixer(model)
-          this.actions = {}
-          const byName = {}
-          for (const clip of gltf.animations) {
-            // Strip root-motion Hips position track
-            clip.tracks = clip.tracks.filter(t => !/Hips\.position$/i.test(t.name))
-            byName[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
-          }
-          const pick = (...keys) => {
-            for (const k of keys) for (const [n, a] of Object.entries(byName)) if (n.includes(k)) return a
-            return null
-          }
-          this.actions.idle = pick('idle', 'stand', 'tpose')
-          this.actions.walk = pick('walk')
-          this.actions.run  = pick('run', 'jog')
-          this.actions.fire = pick('fire', 'shoot')
-          this.actions.die  = pick('die', 'death')
-          if (!this.actions.idle) this.actions.idle = Object.values(byName)[0]
-          if (!this.actions.walk) this.actions.walk = this.actions.idle
-          if (!this.actions.run)  this.actions.run  = this.actions.walk
-          this._switchAnim('idle')
-        }
-        console.log('Enemy GLB animations:', gltf.animations?.map(a => a.name))
-      },
-      undefined,
-      () => {}
-    )
+    // Attach pistol to right hand
+    let enemyHand = null
+    model.traverse(o => {
+      if (o.name === 'mixamorig:RightHand') enemyHand = o
+    })
+    if (enemyHand) {
+      const pistol = new THREE.Group()
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04, 0.06, 0.16),
+        new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6 })
+      )
+      body.position.set(0, 0.02, -0.1)
+      pistol.add(body)
+      const muzzle = new THREE.Object3D()
+      muzzle.position.set(0, 0.02, -0.18)
+      pistol.add(muzzle)
+      pistol.rotation.y = Math.PI / 2
+      enemyHand.add(pistol)
+      this.muzzle = muzzle
+    }
+    this.group.add(model)
+
+    // Animation setup — walk + idle clips
+    this.mixer = new THREE.AnimationMixer(model)
+    this.actions = {}
+    const stripRoot = (clip) => {
+      if (!clip) return null
+      clip.tracks = clip.tracks.filter(t => !/Hips\.position$/i.test(t.name))
+      return clip
+    }
+    const makeAction = (clip, label, loop = true) => {
+      if (!clip) return null
+      stripRoot(clip)
+      clip.name = label
+      const a = this.mixer.clipAction(clip)
+      a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+      a.clampWhenFinished = !loop
+      return a
+    }
+    this.actions.walk = makeAction(walkGltf.animations?.[0], 'walk', true)
+    this.actions.run  = this.actions.walk
+    this.actions.idle = makeAction(idleGltf?.animations?.[0], 'idle', true) || this.actions.walk
+    this.actions.fire = this.actions.walk
+    this.actions.die  = this.actions.walk
+
+    this._switchAnim('idle')
   }
 
   _switchAnim(name, fadeSec = 0.2) {
