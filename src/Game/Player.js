@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 
 // Paste your Ready Player Me GLB URL here to swap player model.
 // Example: 'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb'
