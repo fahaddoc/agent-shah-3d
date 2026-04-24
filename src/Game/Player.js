@@ -340,12 +340,13 @@ export class Player {
       loadGLB('/assets/models/anim-fire.glb').catch(() => null),
       loadGLB('/assets/models/anim-stab.glb').catch(() => null),
       loadGLB('/assets/models/anim-knife-walk.glb').catch(() => null),
-      loadGLB('/assets/models/anim-knife-idle.glb').catch(() => null)
+      loadGLB('/assets/models/anim-knife-idle.glb').catch(() => null),
+      loadGLB('/assets/models/anim-takedown.glb').catch(() => null)
     ]).then(args => this._handleJoeLoaded(...args))
     return
   }
 
-  _handleJoeLoaded(gltf, idleGltf, fireGltf, stabGltf, knifeWalkGltf, knifeIdleGltf) {
+  _handleJoeLoaded(gltf, idleGltf, fireGltf, stabGltf, knifeWalkGltf, knifeIdleGltf, takedownGltf) {
     {
         // Hide procedural parts (keep ring on ground)
         for (const child of [...this.group.children]) {
@@ -423,6 +424,8 @@ export class Player {
         // Knife stance: regular walk/idle (arms at sides, not tactical)
         this.actions.knifeWalk = makeAction(knifeWalkGltf?.animations?.[0], 'knifeWalk', true) || this.actions.walk
         this.actions.knifeIdle = makeAction(knifeIdleGltf?.animations?.[0], 'knifeIdle', true) || this.actions.idle
+        // Stealth Assassination full-body takedown animation
+        this.actions.takedown = makeAction(takedownGltf?.animations?.[0], 'takedown', false)
         // Stab anim disabled — using procedural arm rotation instead (reliable across skeletons)
         // Capture right-arm bone for manual thrust animation
         this.rightArmBone = this._findBone(model, ['mixamorig:RightArm', 'RightArm'])
@@ -915,9 +918,11 @@ export class Player {
     this._takedownDmgFn = onHitEnemy
     this._takedownStage = 'approach'
     this._takedownT = 0
-    // Freeze enemy
     target._frozenForTakedown = true
-    // Disable enemy vision/fire during takedown
+    // Play full-body Mixamo takedown animation (overrides walk/idle)
+    if (this.actions?.takedown) {
+      this._playOneShot('takedown', 0.05)
+    }
   }
 
   _updateTakedown(delta) {
