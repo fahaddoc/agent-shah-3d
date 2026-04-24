@@ -385,16 +385,15 @@ export class Player {
 
         // Joe GLB already has Suit/Shirt/Tie/Hair/Pants/Shoes meshes — no procedural overlays needed
 
-        // Pistol attached to SCENE (not bone) — we sync its transform to right-hand world per frame.
-        // Avoids bone scale/inheritance issues that made pistol invisible.
+        // Weapon system — pistol / machinegun / pencil
         this.rightHandBone = this._findBone(model, ['mixamorig:RightHand', 'RightHand'])
-        console.log('Player rightHand bone:', this.rightHandBone?.name || 'NONE')
-        if (this.rightHandBone) {
-          const pistolGroup = this._buildHandPistol()
-          this.group.add(pistolGroup)     // parent = group, NOT bone
-          this.pistolMesh = pistolGroup
-          this.muzzle = pistolGroup.userData.muzzle
+        this.weapons = {
+          pistol: this._buildHandPistol(),
+          machinegun: this._buildHandMachineGun(),
+          pencil: this._buildHandPencil()
         }
+        for (const w of Object.values(this.weapons)) this.group.add(w)
+        this.setWeapon('pistol')
 
         // Build mixer + register clips (agent.glb = walk, anim-idle.glb = idle, anim-fire.glb = fire)
         this.mixer = new THREE.AnimationMixer(model)
@@ -506,16 +505,13 @@ export class Player {
   }
 
   _buildHandPistol() {
-    // Pistol with GRIP at origin (0,0,0) — so when pinned to hand bone, the grip is in palm
     const g = new THREE.Group()
     const bodyMat  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.85, roughness: 0.35 })
     const slideMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2e, metalness: 0.95, roughness: 0.25 })
     const gripMat  = new THREE.MeshStandardMaterial({ color: 0x050507, metalness: 0.3, roughness: 0.8 })
-    // Grip — sits AT group origin so origin = where hand grips
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.33, 0.14), gripMat)
     grip.position.set(0, 0, 0)
     g.add(grip)
-    // Body — up and forward from grip
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.6), bodyMat)
     body.position.set(0, 0.2, 0.3)
     g.add(body)
@@ -530,6 +526,95 @@ export class Player {
     g.add(muzzle)
     g.userData.muzzle = muzzle
     return g
+  }
+
+  _buildHandMachineGun() {
+    const g = new THREE.Group()
+    const bodyMat  = new THREE.MeshStandardMaterial({ color: 0x1a1d22, metalness: 0.85, roughness: 0.45 })
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, metalness: 0.95, roughness: 0.3 })
+    const stockMat = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.8 })
+    // Grip at origin
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.3, 0.13), bodyMat)
+    g.add(grip)
+    // Magazine in front of grip
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.1), bodyMat)
+    mag.position.set(0, -0.05, 0.18)
+    g.add(mag)
+    // Receiver body — wider + longer than pistol
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.9), bodyMat)
+    body.position.set(0, 0.22, 0.4)
+    g.add(body)
+    // Long barrel
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.7, 12), metalMat)
+    barrel.rotation.x = Math.PI / 2
+    barrel.position.set(0, 0.22, 1.0)
+    g.add(barrel)
+    // Stock behind grip
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.4), stockMat)
+    stock.position.set(0, 0.22, -0.2)
+    g.add(stock)
+    // Front sight
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.04), metalMat)
+    sight.position.set(0, 0.34, 1.25)
+    g.add(sight)
+    const muzzle = new THREE.Object3D()
+    muzzle.position.set(0, 0.22, 1.4)
+    g.add(muzzle)
+    g.userData.muzzle = muzzle
+    return g
+  }
+
+  _buildHandPencil() {
+    const g = new THREE.Group()
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xe8b060, roughness: 0.6 })
+    const graphiteMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 })
+    const eraserMat = new THREE.MeshStandardMaterial({ color: 0xdd4444, roughness: 0.8 })
+    const bandMat = new THREE.MeshStandardMaterial({ color: 0xc08040, metalness: 0.8, roughness: 0.3 })
+    // Held at center — wooden shaft
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8), woodMat)
+    shaft.rotation.x = Math.PI / 2
+    shaft.position.set(0, 0.15, 0.25)
+    g.add(shaft)
+    // Sharpened tip (cone)
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.12, 8), woodMat)
+    tip.rotation.x = Math.PI / 2
+    tip.position.set(0, 0.15, 0.66)
+    g.add(tip)
+    // Graphite point
+    const point = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.04, 8), graphiteMat)
+    point.rotation.x = Math.PI / 2
+    point.position.set(0, 0.15, 0.74)
+    g.add(point)
+    // Metal band at rear
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.06, 8), bandMat)
+    band.rotation.x = Math.PI / 2
+    band.position.set(0, 0.15, -0.12)
+    g.add(band)
+    // Eraser
+    const eraser = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.08, 8), eraserMat)
+    eraser.rotation.x = Math.PI / 2
+    eraser.position.set(0, 0.15, -0.19)
+    g.add(eraser)
+    // Muzzle = tip position (used for stabbing "hit point")
+    const muzzle = new THREE.Object3D()
+    muzzle.position.set(0, 0.15, 0.78)
+    g.add(muzzle)
+    g.userData.muzzle = muzzle
+    return g
+  }
+
+  setWeapon(name) {
+    // Swap active weapon mesh. Hide all, show selected.
+    if (!this.weapons) return
+    this.currentWeapon = name
+    for (const [key, mesh] of Object.entries(this.weapons)) {
+      mesh.visible = (key === name)
+    }
+    this.pistolMesh = this.weapons[name]
+    this.muzzle = this.pistolMesh?.userData.muzzle || this.muzzle
+    // Update HUD
+    const label = { pistol: 'PISTOL', machinegun: 'MACHINE GUN', pencil: 'PENCIL' }[name]
+    if (label && window.__GAME__?.ui) window.__GAME__.ui.setWeapon(label)
   }
 
   _switchTo(name, fadeSec = 0.2) {
@@ -605,14 +690,16 @@ export class Player {
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
 
-    // Track right hand bone position, lock rotation to character forward
-    if (this.pistolMesh && this.rightHandBone) {
+    // Track right hand bone position for ALL weapons — only active one is visible
+    if (this.weapons && this.rightHandBone) {
       const pos = new THREE.Vector3()
       this.rightHandBone.getWorldPosition(pos)
       this.group.worldToLocal(pos)
-      this.pistolMesh.position.copy(pos)
-      this.pistolMesh.rotation.set(0, Math.PI, 0)
-      this.pistolMesh.scale.setScalar(0.33)
+      for (const w of Object.values(this.weapons)) {
+        w.position.copy(pos)
+        w.rotation.set(0, Math.PI, 0)
+        w.scale.setScalar(0.33)
+      }
     }
 
     // Anim state machine (GLB only)
@@ -700,11 +787,19 @@ export class Player {
     const diff = Math.atan2(Math.sin(desiredYaw - cur), Math.cos(desiredYaw - cur))
     this.group.rotation.y = cur + diff * Math.min(delta * 14, 1)
 
-    // Shoot
+    // Weapon switching (1/2/3 keys)
+    if (inputs.consumePress('1')) this.setWeapon('pistol')
+    if (inputs.consumePress('2')) this.setWeapon('machinegun')
+    if (inputs.consumePress('3')) this.setWeapon('pencil')
+
+    // Shoot — cooldown + damage varies per weapon
     this.fireCooldown -= delta
     if (wantFire && this.fireCooldown <= 0) {
       this.shoot()
-      this.fireCooldown = 0.18
+      // Per-weapon fire rate
+      this.fireCooldown = this.currentWeapon === 'machinegun' ? 0.06
+                        : this.currentWeapon === 'pencil' ? 0.55
+                        : 0.18
     }
 
     // Muzzle flash decay
@@ -720,7 +815,10 @@ export class Player {
         const dx = b.mesh.position.x - e.position.x
         const dz = b.mesh.position.z - e.position.z
         if (Math.hypot(dx, dz) < 1.1) {
-          onHitEnemy(e, 25, enemies)
+          const dmg = this.currentWeapon === 'machinegun' ? 10
+                    : this.currentWeapon === 'pencil' ? 80
+                    : 25
+          onHitEnemy(e, dmg, enemies)
           b.life = 0
           break
         }

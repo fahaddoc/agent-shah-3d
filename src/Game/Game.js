@@ -214,7 +214,7 @@ export class Game {
       }
     } else {
       const aliveLeft = this.enemies.filter(e => e.alive).length
-      this.ui.setHint(`WASD move · MOUSE/SPACE shoot · F stealth · RIGHT-CLICK DRAG = orbit camera · TARGETS: ${aliveLeft}`)
+      this.ui.setHint(`WASD move · MOUSE/SPACE shoot · 1 pistol · 2 MG · 3 pencil · F stealth · TARGETS: ${aliveLeft}`)
     }
 
     this.ui.setHealth(this.player.hp, this.player.maxHp)
