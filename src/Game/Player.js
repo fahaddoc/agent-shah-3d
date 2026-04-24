@@ -700,6 +700,14 @@ export class Player {
         w.rotation.set(0, Math.PI, 0)
         w.scale.setScalar(0.33)
       }
+      // Pencil stab thrust animation — forward push for 150ms
+      const pencil = this.weapons.pencil
+      if (pencil?.userData.stabTime > 0) {
+        pencil.userData.stabTime -= delta
+        const t = Math.max(0, pencil.userData.stabTime)
+        const thrust = Math.sin((1 - t / 0.15) * Math.PI) * 0.25  // forward pulse
+        pencil.position.z -= thrust
+      }
     }
 
     // Anim state machine (GLB only)
@@ -792,14 +800,16 @@ export class Player {
     if (inputs.consumePress('2')) this.setWeapon('machinegun')
     if (inputs.consumePress('3')) this.setWeapon('pencil')
 
-    // Shoot — cooldown + damage varies per weapon
+    // Attack — pistol/MG fire bullets, pencil stabs melee
     this.fireCooldown -= delta
     if (wantFire && this.fireCooldown <= 0) {
-      this.shoot()
-      // Per-weapon fire rate
-      this.fireCooldown = this.currentWeapon === 'machinegun' ? 0.06
-                        : this.currentWeapon === 'pencil' ? 0.55
-                        : 0.18
+      if (this.currentWeapon === 'pencil') {
+        this._stabMelee(enemies, onHitEnemy)
+        this.fireCooldown = 0.55
+      } else {
+        this.shoot()
+        this.fireCooldown = this.currentWeapon === 'machinegun' ? 0.06 : 0.18
+      }
     }
 
     // Muzzle flash decay
@@ -827,6 +837,31 @@ export class Player {
         this.scene.remove(b.mesh)
         this.bullets.splice(i, 1)
       }
+    }
+  }
+
+  _stabMelee(enemies, onHitEnemy) {
+    // Quick pencil thrust forward + damage to closest enemy within 2m arc in front
+    const STAB_RANGE = 2.0
+    let target = null, bestDist = STAB_RANGE
+    for (const e of enemies) {
+      if (!e.alive) continue
+      const dx = e.position.x - this.position.x
+      const dz = e.position.z - this.position.z
+      const d = Math.hypot(dx, dz)
+      if (d > bestDist) continue
+      // Must be in front (within 100° forward cone)
+      const dot = (dx * this.aim.x + dz * this.aim.z) / (d || 1)
+      if (dot < 0.3) continue
+      bestDist = d
+      target = e
+    }
+    if (target) onHitEnemy(target, 80, enemies)
+
+    // Visual thrust: push pencil mesh forward briefly
+    const w = this.weapons?.pencil
+    if (w) {
+      w.userData.stabTime = 0.15
     }
   }
 
