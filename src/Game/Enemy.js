@@ -57,8 +57,19 @@ export class Enemy {
         }
         const model = gltf.scene
         model.scale.setScalar(1.1)
-        // Xbot default front matches convention — no rotation
-        model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+        // Tint enemy red so player can tell them apart from agent (both are Soldier GLB)
+        model.traverse(o => {
+          if (!o.isMesh) return
+          o.castShadow = true
+          o.receiveShadow = true
+          // Clone material so we don't tint the agent model (they share the same GLB cache)
+          if (o.material) {
+            const mat = o.material.clone()
+            if (mat.color) mat.color.lerp(new THREE.Color(0xff3344), 0.55)
+            if (mat.emissive) mat.emissive = new THREE.Color(0x440808)
+            o.material = mat
+          }
+        })
         this.group.add(model)
 
         // Attach pistol to right hand bone
