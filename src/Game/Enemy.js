@@ -89,9 +89,10 @@ export class Enemy {
       }
     })
 
-    // Attach pistol to right hand (cm-scale bone)
+    // Pistol parented to group, synced to right-hand world per frame
     let enemyHand = null
     model.traverse(o => { if (o.name === 'mixamorig:RightHand') enemyHand = o })
+    this.rightHandBone = enemyHand
     if (enemyHand) {
       const pistol = new THREE.Group()
       const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.9 })
@@ -108,8 +109,8 @@ export class Enemy {
       const muzzle = new THREE.Object3D()
       muzzle.position.set(0, 0, 0.2)
       pistol.add(muzzle)
-      pistol.position.set(0, 0, 0.02)
-      enemyHand.add(pistol)
+      this.group.add(pistol)   // parent = group, not bone
+      this.pistolMesh = pistol
       this.muzzle = muzzle
     }
     this.group.add(model)
@@ -419,6 +420,18 @@ export class Enemy {
   update(delta, playerPos, camera, onHitPlayer, allEnemies = null) {
     this._allEnemies = allEnemies
     if (this.mixer) this.mixer.update(delta)
+
+    // Sync pistol to hand bone world transform
+    if (this.pistolMesh && this.rightHandBone) {
+      const pos = new THREE.Vector3()
+      const quat = new THREE.Quaternion()
+      this.rightHandBone.getWorldPosition(pos)
+      this.rightHandBone.getWorldQuaternion(quat)
+      this.group.worldToLocal(pos)
+      this.pistolMesh.position.copy(pos)
+      const groupQuatInv = this.group.getWorldQuaternion(new THREE.Quaternion()).invert()
+      this.pistolMesh.quaternion.copy(quat).premultiply(groupQuatInv)
+    }
     if (!this.alive) {
       this._updateBullets(delta, playerPos, onHitPlayer)
       return

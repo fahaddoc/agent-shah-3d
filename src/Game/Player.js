@@ -385,12 +385,14 @@ export class Player {
 
         // Joe GLB already has Suit/Shirt/Tie/Hair/Pants/Shoes meshes — no procedural overlays needed
 
-        // Attach pistol to right hand bone
-        const rightHand = this._findBone(model, ['mixamorig:RightHand', 'RightHand'])
-        console.log('Player rightHand bone found:', rightHand?.name || 'NONE')
-        if (rightHand) {
+        // Pistol attached to SCENE (not bone) — we sync its transform to right-hand world per frame.
+        // Avoids bone scale/inheritance issues that made pistol invisible.
+        this.rightHandBone = this._findBone(model, ['mixamorig:RightHand', 'RightHand'])
+        console.log('Player rightHand bone:', this.rightHandBone?.name || 'NONE')
+        if (this.rightHandBone) {
           const pistolGroup = this._buildHandPistol()
-          rightHand.add(pistolGroup)
+          this.group.add(pistolGroup)     // parent = group, NOT bone
+          this.pistolMesh = pistolGroup
           this.muzzle = pistolGroup.userData.muzzle
         }
 
@@ -601,6 +603,20 @@ export class Player {
     const speedNow = Math.hypot(this.velocity.x, this.velocity.z)
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
+
+    // Sync pistol to right-hand bone world transform (every frame, after mixer updates skeleton)
+    if (this.pistolMesh && this.rightHandBone) {
+      const pos = new THREE.Vector3()
+      const quat = new THREE.Quaternion()
+      this.rightHandBone.getWorldPosition(pos)
+      this.rightHandBone.getWorldQuaternion(quat)
+      // Convert world → group local (since pistol is parented to group)
+      this.group.worldToLocal(pos)
+      this.pistolMesh.position.copy(pos)
+      // For rotation, need to convert world quat to local group quat
+      const groupQuatInv = this.group.getWorldQuaternion(new THREE.Quaternion()).invert()
+      this.pistolMesh.quaternion.copy(quat).premultiply(groupQuatInv)
+    }
 
     // Anim state machine (GLB only)
     if (this.actions) {
