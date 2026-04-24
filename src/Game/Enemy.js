@@ -77,25 +77,17 @@ export class Enemy {
     this.muzzle.position.set(0, 0, -0.9)
     this.armPivot.add(this.muzzle)
 
-    // Vision cone (a flat triangle on ground, color reflects state)
-    const coneShape = new THREE.Shape()
-    coneShape.moveTo(0, 0)
-    coneShape.lineTo(Math.sin(this.visionAngle) * this.visionRange, this.visionRange)
-    coneShape.absarc(0, 0, this.visionRange, Math.PI / 2 - this.visionAngle, Math.PI / 2 + this.visionAngle, false)
-    coneShape.lineTo(0, 0)
-    const coneGeo = new THREE.ShapeGeometry(coneShape)
+    // Vision cone — built directly in XZ plane, forward = -Z (matches logic)
+    const coneGeo = this._buildConeGeometry(this.visionRange, this.visionAngle)
     this.visionMat = new THREE.MeshBasicMaterial({
       color: 0xffff00,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.22,
       side: THREE.DoubleSide,
       depthWrite: false
     })
     this.visionMesh = new THREE.Mesh(coneGeo, this.visionMat)
-    this.visionMesh.rotation.x = -Math.PI / 2
     this.visionMesh.position.y = 0.05
-    // Cone forward = -Z in world. Shape points +Y, so rotate around Y by PI to flip.
-    this.visionMesh.rotation.z = Math.PI
     this.group.add(this.visionMesh)
 
     // State indicator above head (! or ?)
@@ -118,6 +110,30 @@ export class Enemy {
     this.hpFill.position.z = 0.001
     this.hpBar.add(this.hpFill)
     this.group.add(this.hpBar)
+  }
+
+  _buildConeGeometry(range, halfAngle) {
+    // Flat cone (triangle fan) on XZ plane, apex at origin, opens toward -Z
+    const segments = 24
+    const positions = [0, 0, 0]
+    const indices = []
+    const start = -halfAngle
+    const end = halfAngle
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments
+      const a = start + (end - start) * t
+      // Direction is -Z rotated around Y by 'a': x = -sin(a)*range (actually sin(a)*range on left),
+      // z = -cos(a)*range. We want cone opens toward -Z so center ray (a=0) is (0, 0, -range).
+      const x = Math.sin(a) * range
+      const z = -Math.cos(a) * range
+      positions.push(x, 0, z)
+      if (i > 0) indices.push(0, i, i + 1)
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    geo.setIndex(indices)
+    geo.computeVertexNormals()
+    return geo
   }
 
   _makeStateIcon(text) {
