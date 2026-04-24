@@ -729,10 +729,11 @@ export class Player {
     mesh.position.copy(this.muzzleWorld)
     this.scene.add(mesh)
     this.bullets.push({ mesh, dir: this.aim.clone().normalize(), speed: 38, life: 1.4 })
-    this.flash.material.opacity = 1.0
-    // small recoil kick on arm rig
-    this.armRig.position.z = 0.08
-    setTimeout(() => { this.armRig.position.z = 0 }, 60)
+    if (this.flash?.material) this.flash.material.opacity = 1.0
+    if (this.armRig) {
+      this.armRig.position.z = 0.08
+      setTimeout(() => { if (this.armRig) this.armRig.position.z = 0 }, 60)
+    }
   }
 
   takeDamage(n) {
