@@ -57,29 +57,59 @@ export class Enemy {
         }
         const model = gltf.scene
         model.scale.setScalar(1.1)
-        // Tint enemy red so player can tell them apart from agent (both are Soldier GLB)
+        // Hide visor + strip textures + dark crimson suit for gangster enemy look
         model.traverse(o => {
           if (!o.isMesh) return
           o.castShadow = true
           o.receiveShadow = true
-          // Clone material so we don't tint the agent model (they share the same GLB cache)
+          const lname = (o.name || '').toLowerCase()
+          if (lname.includes('visor') || lname.includes('helmet') || lname.includes('goggles')) {
+            o.visible = false
+            return
+          }
           if (o.material) {
             const mat = o.material.clone()
-            if (mat.color) mat.color.lerp(new THREE.Color(0xff3344), 0.55)
-            if (mat.emissive) mat.emissive = new THREE.Color(0x440808)
+            if (mat.color) mat.color.setHex(0x1a0608)  // dark blood-crimson suit
+            if (mat.map) mat.map = null
+            if (mat.normalMap) mat.normalMap = null
+            if (mat.roughnessMap) mat.roughnessMap = null
+            if (mat.metalnessMap) mat.metalnessMap = null
+            mat.roughness = 0.55
+            mat.metalness = 0.1
+            if (mat.emissive) mat.emissive.setHex(0x220000)
             o.material = mat
           }
         })
-        this.group.add(model)
 
-        // Attach pistol to right hand bone
-        let rightHand = null
+        // White shirt + red tie for enemy (gangster look)
+        let spine = null, enemyHead = null, enemyHand = null
         model.traverse(o => {
-          if (rightHand || !o.isBone) return
-          const n = o.name.toLowerCase()
-          if (n.includes('righthand') || n === 'hand_r' || n === 'right_hand') rightHand = o
+          if (o.name === 'mixamorig:Spine2' || o.name === 'mixamorig:Spine1') spine = spine || o
+          if (o.name === 'mixamorig:Head') enemyHead = o
+          if (o.name === 'mixamorig:RightHand') enemyHand = o
         })
-        if (rightHand) {
+        if (spine) {
+          const shirt = new THREE.Mesh(
+            new THREE.BoxGeometry(14, 22, 2),
+            new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.7 })
+          )
+          shirt.position.set(0, 5, 8)
+          spine.add(shirt)
+          const tie = new THREE.Mesh(
+            new THREE.BoxGeometry(2.6, 22, 0.9),
+            new THREE.MeshStandardMaterial({ color: 0x880000, roughness: 0.4 })
+          )
+          tie.position.set(0, 3, 9.2)
+          spine.add(tie)
+        }
+        if (enemyHead) {
+          const hairMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.92 })
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(10, 18, 18, 0, Math.PI * 2, 0, Math.PI * 0.52), hairMat)
+          cap.position.set(0, 3, 0)
+          enemyHead.add(cap)
+        }
+        // Replace right-hand pistol (override procedural muzzle)
+        if (enemyHand) {
           const pistol = new THREE.Group()
           const body = new THREE.Mesh(
             new THREE.BoxGeometry(4, 6, 14),
@@ -92,9 +122,12 @@ export class Enemy {
           pistol.add(muzzle)
           pistol.scale.setScalar(0.35)
           pistol.rotation.y = Math.PI / 2
-          rightHand.add(pistol)
+          enemyHand.add(pistol)
           this.muzzle = muzzle
         }
+        this.group.add(model)
+
+        // (pistol already attached above via enemyHand)
         if (gltf.animations && gltf.animations.length) {
           this.mixer = new THREE.AnimationMixer(model)
           this.actions = {}

@@ -286,9 +286,9 @@ export class Player {
           if (!o.isMesh) return
           o.castShadow = true
           o.receiveShadow = true
-          // Hide helmet / accessories by name heuristic
+          // Hide helmet / visor / accessories
           const lname = (o.name || '').toLowerCase()
-          if (lname.includes('helmet') || lname.includes('vest') || lname.includes('goggles') || lname.includes('backpack')) {
+          if (lname.includes('helmet') || lname.includes('vest') || lname.includes('goggles') || lname.includes('backpack') || lname.includes('visor')) {
             o.visible = false
             return
           }
@@ -309,50 +309,62 @@ export class Player {
         this.group.add(model)
         this.glbModel = model
 
-        // White shirt strip on chest (spine bone) + black tie
-        const spine = this._findBone(model, ['Spine2', 'Spine1', 'Spine', 'chest'])
+        // White shirt + black tie on chest bone
+        const spine = this._findBone(model, ['mixamorig:Spine2', 'mixamorig:Spine1', 'mixamorig:Spine', 'Spine2', 'Spine1', 'Spine'])
         if (spine) {
           const shirt = new THREE.Mesh(
-            new THREE.BoxGeometry(12, 18, 2),
+            new THREE.BoxGeometry(14, 22, 2),
             new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.7 })
           )
-          shirt.position.set(0, 6, 9)
+          shirt.position.set(0, 5, 8)
           spine.add(shirt)
           const tie = new THREE.Mesh(
-            new THREE.BoxGeometry(3, 20, 0.8),
-            new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.4 })
+            new THREE.BoxGeometry(2.6, 22, 0.9),
+            new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.35 })
           )
-          tie.position.set(0, 4, 10.5)
+          tie.position.set(0, 3, 9.2)
           spine.add(tie)
         }
 
-        // Hair + beard attached to head bone
-        const head = this._findBone(model, ['Head', 'mixamorigHead', 'head'])
+        // Hair + beard on head bone
+        const head = this._findBone(model, ['mixamorig:Head', 'Head'])
         if (head) {
-          const hairMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.9 })
-          // Cap of hair
-          const hairTop = new THREE.Mesh(new THREE.SphereGeometry(9, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat)
-          hairTop.position.set(0, 4, 0)
-          head.add(hairTop)
-          // Long back swept hair
-          const hairBack = new THREE.Mesh(new THREE.BoxGeometry(14, 14, 4), hairMat)
-          hairBack.position.set(0, 2, 7)
+          const hairMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.92 })
+          // Swept-back hair cap (covering top of head)
+          const hairCap = new THREE.Mesh(
+            new THREE.SphereGeometry(10, 22, 22, 0, Math.PI * 2, 0, Math.PI * 0.52),
+            hairMat
+          )
+          hairCap.position.set(0, 3, 0)
+          head.add(hairCap)
+          // Back long strand
+          const hairBack = new THREE.Mesh(new THREE.BoxGeometry(16, 12, 4), hairMat)
+          hairBack.position.set(0, 0, 7)
           head.add(hairBack)
-          const hairLonger = new THREE.Mesh(new THREE.BoxGeometry(12, 12, 2), hairMat)
-          hairLonger.position.set(0, -6, 8)
-          head.add(hairLonger)
-          // Beard
-          const beardMat = new THREE.MeshStandardMaterial({ color: 0x150a08, roughness: 0.95 })
-          const beard = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 5), beardMat)
-          beard.position.set(0, -7, -7)
-          head.add(beard)
-          const stache = new THREE.Mesh(new THREE.BoxGeometry(7, 1.5, 2), beardMat)
-          stache.position.set(0, -4.5, -9)
+          // Longer strand below back
+          const hairLong = new THREE.Mesh(new THREE.BoxGeometry(13, 10, 3), hairMat)
+          hairLong.position.set(0, -8, 7)
+          head.add(hairLong)
+
+          // Beard (chin scruff)
+          const beardMat = new THREE.MeshStandardMaterial({ color: 0x120806, roughness: 0.96 })
+          const beardChin = new THREE.Mesh(new THREE.BoxGeometry(11, 4, 4), beardMat)
+          beardChin.position.set(0, -9, -7)
+          head.add(beardChin)
+          const beardSideL = new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), beardMat)
+          beardSideL.position.set(-7, -5, -6)
+          head.add(beardSideL)
+          const beardSideR = beardSideL.clone()
+          beardSideR.position.set(7, -5, -6)
+          head.add(beardSideR)
+          // Mustache
+          const stache = new THREE.Mesh(new THREE.BoxGeometry(6, 1.4, 2), beardMat)
+          stache.position.set(0, -4, -9)
           head.add(stache)
         }
 
         // Attach pistol to right hand bone
-        const rightHand = this._findBone(model, ['RightHand', 'mixamorigRightHand', 'right_hand', 'Hand_R'])
+        const rightHand = this._findBone(model, ['mixamorig:RightHand', 'RightHand'])
         if (rightHand) {
           const pistolGroup = this._buildHandPistol()
           rightHand.add(pistolGroup)
@@ -454,14 +466,24 @@ export class Player {
   _findBone(root, nameList) {
     let found = null
     root.traverse(o => {
-      if (found || !o.isBone) return
+      if (found) return
+      if (!o.isBone && !o.isObject3D) return
       for (const n of nameList) {
-        if (o.name === n || o.name.toLowerCase().includes(n.toLowerCase())) {
-          found = o
-          return
-        }
+        if (o.name === n) { found = o; return }
       }
     })
+    if (!found) {
+      // Fallback: loose substring match
+      root.traverse(o => {
+        if (found) return
+        for (const n of nameList) {
+          if (o.name && o.name.toLowerCase().includes(n.toLowerCase().replace('mixamorig:', ''))) {
+            found = o
+            return
+          }
+        }
+      })
+    }
     return found
   }
 
