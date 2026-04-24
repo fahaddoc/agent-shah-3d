@@ -759,13 +759,16 @@ export class Player {
         else if (this.actions.run) this._switchTo('run', 0.05)
         setTimeout(() => { this._dodging = false }, 450)
       } else if (!this._dodging && !this._firing) {
-        // Pencil uses knife stance (arms at sides), pistol/MG uses tactical pistol walk
         const isKnife = this.currentWeapon === 'pencil'
         const base = moving
           ? (isKnife ? 'knifeWalk' : (speedNow > 5.5 ? 'run' : 'walk'))
           : (isKnife ? 'knifeIdle' : 'idle')
         this._switchTo(base)
-        if (this._currentAction) this._currentAction.timeScale = (speedNow > 5.5 && !isKnife) ? 1.7 : 1.0
+        // Intense knife walk: 1.4x playback speed for purposeful stride
+        const ts = isKnife && moving ? 1.4
+                 : (speedNow > 5.5 && !isKnife) ? 1.7
+                 : 1.0
+        if (this._currentAction) this._currentAction.timeScale = ts
       }
     }
     if (moving) {
