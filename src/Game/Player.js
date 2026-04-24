@@ -506,36 +506,26 @@ export class Player {
   }
 
   _buildHandPistol() {
-    // Realistic pistol — black metal body + lighter steel slide + grip
+    // 60cm oversized pistol — bigger than real but visibly clear in screenshots
     const g = new THREE.Group()
     const bodyMat  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.85, roughness: 0.35 })
     const slideMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2e, metalness: 0.95, roughness: 0.25 })
     const gripMat  = new THREE.MeshStandardMaterial({ color: 0x050507, metalness: 0.3, roughness: 0.8 })
-
-    // Barrel body (lower)
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.04, 0.2), bodyMat)
-    body.position.set(0, -0.01, 0.08)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.6), bodyMat)
+    body.position.set(0, -0.03, 0.24)
     g.add(body)
-    // Slide (upper, shinier)
-    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.035, 0.2), slideMat)
-    slide.position.set(0, 0.022, 0.08)
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 0.6), slideMat)
+    slide.position.set(0, 0.07, 0.24)
     g.add(slide)
-    // Sight bump on top rear
-    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.022), slideMat)
-    sight.position.set(0, 0.045, 0.0)
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.06), slideMat)
+    sight.position.set(0, 0.14, 0)
     g.add(sight)
-    // Grip (angled slightly back)
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.11, 0.05), gripMat)
-    grip.position.set(0, -0.07, -0.015)
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.33, 0.14), gripMat)
+    grip.position.set(0, -0.2, -0.05)
     grip.rotation.x = 0.25
     g.add(grip)
-    // Trigger guard (thin loop simulated with box)
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.01, 0.04), bodyMat)
-    guard.position.set(0, -0.025, 0.01)
-    g.add(guard)
-    // Muzzle
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, -0.01, 0.19)
+    muzzle.position.set(0, -0.03, 0.57)
     g.add(muzzle)
     g.userData.muzzle = muzzle
     return g
