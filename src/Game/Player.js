@@ -604,10 +604,11 @@ export class Player {
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
 
-    // Pistol pinned at forward extended hand position — matches Pistol Idle/Walk tactical stance
+    // Pistol pinned at forward extended hand position
     if (this.pistolMesh) {
-      this.pistolMesh.position.set(0.15, 1.4, -0.55)   // right hand, chest height, forward
-      this.pistolMesh.rotation.set(0, Math.PI, 0)       // barrel along -Z (character forward)
+      this.pistolMesh.position.set(0.15, 1.4, -0.55)
+      this.pistolMesh.rotation.set(0, Math.PI, 0)
+      this.pistolMesh.scale.setScalar(0.33)  // scale from 60cm build → ~20cm final
     }
 
     // Anim state machine (GLB only)

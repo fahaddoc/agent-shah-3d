@@ -423,10 +423,11 @@ export class Enemy {
     this._allEnemies = allEnemies
     if (this.mixer) this.mixer.update(delta)
 
-    // Pistol pinned at tactical hold position (forward from chest)
+    // Pistol pinned at tactical hold position
     if (this.pistolMesh) {
       this.pistolMesh.position.set(0.15, 1.4, -0.55)
       this.pistolMesh.rotation.set(0, Math.PI, 0)
+      this.pistolMesh.scale.setScalar(0.33)
     }
     if (!this.alive) {
       this._updateBullets(delta, playerPos, onHitPlayer)
