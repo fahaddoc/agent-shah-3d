@@ -324,9 +324,11 @@ export class Player {
           if (!o.isMesh) return
           o.castShadow = true
           o.receiveShadow = true
-          // Hide helmet / visor / accessories
+          // Hide helmet / visor / skeleton joints visualizer
           const lname = (o.name || '').toLowerCase()
-          if (lname.includes('helmet') || lname.includes('vest') || lname.includes('goggles') || lname.includes('backpack') || lname.includes('visor')) {
+          if (lname.includes('helmet') || lname.includes('vest') || lname.includes('goggles') ||
+              lname.includes('backpack') || lname.includes('visor') ||
+              lname.includes('joint') || lname.includes('bone')) {
             o.visible = false
             return
           }
