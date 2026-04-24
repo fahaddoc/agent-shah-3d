@@ -271,7 +271,7 @@ export class Player {
           if (child !== this.muzzle && child !== this.flash) child.visible = false
         }
         const model = gltf.scene
-        model.scale.setScalar(1.1)
+        model.scale.setScalar(1.9)
         // Dump mesh + bone names once for debugging (only player)
         const meshNames = []
         const boneNames = []
@@ -309,57 +309,56 @@ export class Player {
         this.group.add(model)
         this.glbModel = model
 
-        // White shirt + black tie on chest bone
-        const spine = this._findBone(model, ['mixamorig:Spine2', 'mixamorig:Spine1', 'mixamorig:Spine', 'Spine2', 'Spine1', 'Spine'])
+        // Scale-aware bone overlays: use world-space sizes that attach to bones
+        // Mixamo bones export in cm-scale inside the GLB. We build overlays in world scale
+        // and add them as direct bone children; bone applies its transform.
+        // Compensate: geometry in world-meters, divided by inherited bone scale = larger numbers.
+        // Trial values below produce visible Wick overlay at player scale 1.9.
+        const spine = this._findBone(model, ['mixamorig:Spine2', 'mixamorig:Spine1', 'mixamorig:Spine'])
         if (spine) {
           const shirt = new THREE.Mesh(
-            new THREE.BoxGeometry(14, 22, 2),
+            new THREE.BoxGeometry(30, 45, 5),
             new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.7 })
           )
-          shirt.position.set(0, 5, 8)
+          shirt.position.set(0, 10, 12)
           spine.add(shirt)
           const tie = new THREE.Mesh(
-            new THREE.BoxGeometry(2.6, 22, 0.9),
+            new THREE.BoxGeometry(5, 50, 1.5),
             new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.35 })
           )
-          tie.position.set(0, 3, 9.2)
+          tie.position.set(0, 7, 14)
           spine.add(tie)
         }
 
-        // Hair + beard on head bone
         const head = this._findBone(model, ['mixamorig:Head', 'Head'])
         if (head) {
           const hairMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.92 })
-          // Swept-back hair cap (covering top of head)
+          // Bone scale ~1.0 in cm = 100x world scale. Use values that give proper head coverage.
           const hairCap = new THREE.Mesh(
-            new THREE.SphereGeometry(10, 22, 22, 0, Math.PI * 2, 0, Math.PI * 0.52),
+            new THREE.SphereGeometry(11, 22, 22, 0, Math.PI * 2, 0, Math.PI * 0.55),
             hairMat
           )
-          hairCap.position.set(0, 3, 0)
+          hairCap.position.set(0, 6, 2)
           head.add(hairCap)
-          // Back long strand
-          const hairBack = new THREE.Mesh(new THREE.BoxGeometry(16, 12, 4), hairMat)
-          hairBack.position.set(0, 0, 7)
+          const hairBack = new THREE.Mesh(new THREE.BoxGeometry(20, 18, 6), hairMat)
+          hairBack.position.set(0, 0, 10)
           head.add(hairBack)
-          // Longer strand below back
-          const hairLong = new THREE.Mesh(new THREE.BoxGeometry(13, 10, 3), hairMat)
-          hairLong.position.set(0, -8, 7)
+          const hairLong = new THREE.Mesh(new THREE.BoxGeometry(16, 16, 4), hairMat)
+          hairLong.position.set(0, -14, 10)
           head.add(hairLong)
 
-          // Beard (chin scruff)
           const beardMat = new THREE.MeshStandardMaterial({ color: 0x120806, roughness: 0.96 })
-          const beardChin = new THREE.Mesh(new THREE.BoxGeometry(11, 4, 4), beardMat)
-          beardChin.position.set(0, -9, -7)
+          const beardChin = new THREE.Mesh(new THREE.BoxGeometry(15, 6, 6), beardMat)
+          beardChin.position.set(0, -14, -10)
           head.add(beardChin)
-          const beardSideL = new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), beardMat)
-          beardSideL.position.set(-7, -5, -6)
+          const beardSideL = new THREE.Mesh(new THREE.BoxGeometry(4, 12, 5), beardMat)
+          beardSideL.position.set(-10, -8, -8)
           head.add(beardSideL)
           const beardSideR = beardSideL.clone()
-          beardSideR.position.set(7, -5, -6)
+          beardSideR.position.set(10, -8, -8)
           head.add(beardSideR)
-          // Mustache
-          const stache = new THREE.Mesh(new THREE.BoxGeometry(6, 1.4, 2), beardMat)
-          stache.position.set(0, -4, -9)
+          const stache = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 3), beardMat)
+          stache.position.set(0, -6, -12)
           head.add(stache)
         }
 

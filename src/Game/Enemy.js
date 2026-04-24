@@ -56,7 +56,7 @@ export class Enemy {
           if (!keep.has(child)) child.visible = false
         }
         const model = gltf.scene
-        model.scale.setScalar(1.1)
+        model.scale.setScalar(1.9)
         // Hide visor + strip textures + dark crimson suit for gangster enemy look
         model.traverse(o => {
           if (!o.isMesh) return
@@ -90,22 +90,22 @@ export class Enemy {
         })
         if (spine) {
           const shirt = new THREE.Mesh(
-            new THREE.BoxGeometry(14, 22, 2),
+            new THREE.BoxGeometry(30, 45, 5),
             new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.7 })
           )
-          shirt.position.set(0, 5, 8)
+          shirt.position.set(0, 10, 12)
           spine.add(shirt)
           const tie = new THREE.Mesh(
-            new THREE.BoxGeometry(2.6, 22, 0.9),
+            new THREE.BoxGeometry(5, 50, 1.5),
             new THREE.MeshStandardMaterial({ color: 0x880000, roughness: 0.4 })
           )
-          tie.position.set(0, 3, 9.2)
+          tie.position.set(0, 7, 14)
           spine.add(tie)
         }
         if (enemyHead) {
           const hairMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.92 })
-          const cap = new THREE.Mesh(new THREE.SphereGeometry(10, 18, 18, 0, Math.PI * 2, 0, Math.PI * 0.52), hairMat)
-          cap.position.set(0, 3, 0)
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(11, 18, 18, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat)
+          cap.position.set(0, 6, 2)
           enemyHead.add(cap)
         }
         // Replace right-hand pistol (override procedural muzzle)
