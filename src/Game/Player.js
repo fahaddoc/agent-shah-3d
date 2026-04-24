@@ -418,17 +418,12 @@ export class Player {
         this.actions.run   = this.actions.walk
         this.actions.idle  = makeAction(idleGltf?.animations?.[0], 'idle', true) || this.actions.walk
         this.actions.fire  = makeAction(fireGltf?.animations?.[0], 'fire', false)
-        // Stab animation — additive blend (delta from rest pose), layers over walk/idle
-        if (stabGltf?.animations?.[0]) {
-          const stabClip = stabGltf.animations[0].clone()
-          stripRootMotion(stabClip)
-          stabClip.name = 'stab'
-          THREE.AnimationUtils.makeClipAdditive(stabClip)
-          this.actions.stab = this.mixer.clipAction(stabClip)
-          this.actions.stab.blendMode = THREE.AdditiveAnimationBlendMode
-          this.actions.stab.setLoop(THREE.LoopOnce, 1)
-          this.actions.stab.clampWhenFinished = false
-        }
+        // Stab anim disabled — using procedural arm rotation instead (reliable across skeletons)
+        // Capture right-arm bone for manual thrust animation
+        this.rightArmBone = this._findBone(model, ['mixamorig:RightArm', 'RightArm'])
+        this.rightForeArmBone = this._findBone(model, ['mixamorig:RightForeArm', 'RightForeArm'])
+        this._armRestQuat = this.rightArmBone?.quaternion.clone()
+        this._foreArmRestQuat = this.rightForeArmBone?.quaternion.clone()
         this.actions.dodge = this.actions.run
 
         this._switchTo('idle')
@@ -702,6 +697,25 @@ export class Player {
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
 
+    // Procedural stab arm thrust — rotates right arm + forearm forward briefly
+    if (this._stabTime > 0 && this.rightArmBone && this.rightForeArmBone) {
+      this._stabTime -= delta
+      const t = Math.max(0, this._stabTime)
+      const progress = 1 - t / 0.35
+      const pulse = Math.sin(progress * Math.PI)   // 0→1→0 ease
+      // Rotate shoulder up+forward
+      const armRot = new THREE.Euler(-pulse * 1.4, 0, 0)
+      const armQuat = new THREE.Quaternion().setFromEuler(armRot)
+      this.rightArmBone.quaternion.multiplyQuaternions(this._armRestQuat, armQuat)
+      // Extend forearm
+      const foreRot = new THREE.Euler(-pulse * 0.6, 0, 0)
+      const foreQuat = new THREE.Quaternion().setFromEuler(foreRot)
+      this.rightForeArmBone.quaternion.multiplyQuaternions(this._foreArmRestQuat, foreQuat)
+    } else if (this.rightArmBone && this._armRestQuat && this._stabTime <= 0 && this._stabTime > -1) {
+      // Snap back to rest (then mixer resumes control naturally)
+      this._stabTime = -1
+    }
+
     // Track right hand bone position for ALL weapons — only active one is visible
     if (this.weapons && this.rightHandBone) {
       const pos = new THREE.Vector3()
@@ -869,16 +883,10 @@ export class Player {
       target = e
     }
     if (target) onHitEnemy(target, 80, enemies)
-    // Stab animation layered additively on top of walk/idle (no T-pose override)
-    const stab = this.actions?.stab
-    if (stab) {
-      stab.reset()
-      stab.setEffectiveWeight(1.0)
-      stab.play()
-    }
-    // Pencil mesh thrust forward
+    // Trigger procedural stab animation
+    this._stabTime = 0.35
     const w = this.weapons?.pencil
-    if (w) w.userData.stabTime = 0.3
+    if (w) w.userData.stabTime = 0.35
   }
 
   shoot() {
