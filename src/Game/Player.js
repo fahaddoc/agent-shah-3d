@@ -613,10 +613,9 @@ export class Player {
       } else if (!this._dodging) {
         if (wantFireNow && this.actions.fire) {
           this._switchTo('fire')
-        } else if (speedNow > 5.5) {
-          this._switchTo('run')
         } else if (moving) {
-          this._switchTo('walk')
+          this._switchTo(speedNow > 5.5 ? 'run' : 'walk')
+          if (this._currentAction) this._currentAction.timeScale = speedNow > 5.5 ? 1.7 : 1.0
         } else {
           this._switchTo('idle')
         }
