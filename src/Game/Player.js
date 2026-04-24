@@ -950,14 +950,13 @@ export class Player {
       t.alive = false
     }
 
-    // Smooth fall from 1.3s → 2.3s (1-second fall)
+    // Smooth fall from 1.3s → 2.3s (1-second fall), body rests ON floor
     if (this._takedownT > 1.3) {
       const fallP = Math.min(1, (this._takedownT - 1.3) / 1.0)
-      // Ease-in fall (fast at end)
       const eased = fallP * fallP
       t.group.rotation.x = eased * (Math.PI / 2)
-      t.group.position.y = -eased * 0.25   // sink down slightly
-      // Slight slump backward first then forward for realism
+      // Body thickness ~0.4m — when horizontal, needs y=0.2 to rest on ground
+      t.group.position.y = eased * 0.2
       t.group.rotation.z = Math.sin(fallP * Math.PI) * 0.15
     }
 
