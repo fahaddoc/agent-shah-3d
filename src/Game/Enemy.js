@@ -669,6 +669,6 @@ export class Enemy {
       this.group.rotation.x = Math.PI / 2
       this.group.position.y = 0.2
     }
-    setTimeout(() => this.scene.remove(this.group), 1800)
+    // Body stays on floor permanently
   }
 }
