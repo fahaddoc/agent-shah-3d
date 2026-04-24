@@ -733,13 +733,8 @@ export class Player {
       this.armRig.position.z = 0.08
       setTimeout(() => { if (this.armRig) this.armRig.position.z = 0 }, 60)
     }
-    // Play fire animation (200ms burst then back to walk/idle)
-    if (this.actions?.fire && !this._firing) {
-      this._firing = true
-      this._playOneShot('fire', 0.06)
-      clearTimeout(this._fireTimeout)
-      this._fireTimeout = setTimeout(() => { this._firing = false }, 250)
-    }
+    // Fire anim disabled — was causing T-pose snap due to skeleton mismatch
+    // Bullets still fire; animation stays in walk/idle
   }
 
   takeDamage(n) {
