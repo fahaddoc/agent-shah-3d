@@ -506,26 +506,27 @@ export class Player {
   }
 
   _buildHandPistol() {
-    // 60cm oversized pistol — bigger than real but visibly clear in screenshots
+    // Pistol with GRIP at origin (0,0,0) — so when pinned to hand bone, the grip is in palm
     const g = new THREE.Group()
     const bodyMat  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.85, roughness: 0.35 })
     const slideMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2e, metalness: 0.95, roughness: 0.25 })
     const gripMat  = new THREE.MeshStandardMaterial({ color: 0x050507, metalness: 0.3, roughness: 0.8 })
+    // Grip — sits AT group origin so origin = where hand grips
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.33, 0.14), gripMat)
+    grip.position.set(0, 0, 0)
+    g.add(grip)
+    // Body — up and forward from grip
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.6), bodyMat)
-    body.position.set(0, -0.03, 0.24)
+    body.position.set(0, 0.2, 0.3)
     g.add(body)
     const slide = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 0.6), slideMat)
-    slide.position.set(0, 0.07, 0.24)
+    slide.position.set(0, 0.3, 0.3)
     g.add(slide)
     const sight = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.06), slideMat)
-    sight.position.set(0, 0.14, 0)
+    sight.position.set(0, 0.37, 0.05)
     g.add(sight)
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.33, 0.14), gripMat)
-    grip.position.set(0, -0.2, -0.05)
-    grip.rotation.x = 0.25
-    g.add(grip)
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, -0.03, 0.57)
+    muzzle.position.set(0, 0.2, 0.63)
     g.add(muzzle)
     g.userData.muzzle = muzzle
     return g
@@ -604,11 +605,14 @@ export class Player {
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
 
-    // Pistol pinned at forward extended hand position
-    if (this.pistolMesh) {
-      this.pistolMesh.position.set(0.15, 1.4, -0.55)
+    // Track right hand bone position, lock rotation to character forward
+    if (this.pistolMesh && this.rightHandBone) {
+      const pos = new THREE.Vector3()
+      this.rightHandBone.getWorldPosition(pos)
+      this.group.worldToLocal(pos)
+      this.pistolMesh.position.copy(pos)
       this.pistolMesh.rotation.set(0, Math.PI, 0)
-      this.pistolMesh.scale.setScalar(0.33)  // scale from 60cm build → ~20cm final
+      this.pistolMesh.scale.setScalar(0.33)
     }
 
     // Anim state machine (GLB only)
