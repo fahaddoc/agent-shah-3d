@@ -387,10 +387,10 @@ export class Player {
 
         // Attach pistol to right hand bone
         const rightHand = this._findBone(model, ['mixamorig:RightHand', 'RightHand'])
+        console.log('Player rightHand bone found:', rightHand?.name || 'NONE')
         if (rightHand) {
           const pistolGroup = this._buildHandPistol()
           rightHand.add(pistolGroup)
-          // override muzzle to use hand pistol muzzle
           this.muzzle = pistolGroup.userData.muzzle
         }
 
@@ -505,30 +505,25 @@ export class Player {
 
   _buildHandPistol() {
     const g = new THREE.Group()
-    // Geometry sizes in meters — bone is in meters post-FBX→GLB
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(0.04, 0.06, 0.16),
-      new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.7, roughness: 0.35 })
-    )
-    body.position.set(0, 0.02, -0.1)
+    // Joe's mixamo bones appear in cm units (not meters) — use larger values
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.8, roughness: 0.3 })
+    const slideMat = new THREE.MeshStandardMaterial({ color: 0x404045, metalness: 0.9, roughness: 0.25 })
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 16), gunMat)
+    body.position.set(0, 2, -10)
     g.add(body)
-    const slide = new THREE.Mesh(
-      new THREE.BoxGeometry(0.035, 0.025, 0.16),
-      new THREE.MeshStandardMaterial({ color: 0x6a6a6e, metalness: 0.8, roughness: 0.3 })
-    )
-    slide.position.set(0, 0.045, -0.1)
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.5, 16), slideMat)
+    slide.position.set(0, 4.5, -10)
     g.add(slide)
-    const grip = new THREE.Mesh(
-      new THREE.BoxGeometry(0.03, 0.08, 0.04),
-      new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.6, roughness: 0.4 })
-    )
-    grip.position.set(0, -0.04, -0.02)
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(3, 8, 4), gunMat)
+    grip.position.set(0, -4, -2)
     g.add(grip)
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, 0.02, -0.18)
+    muzzle.position.set(0, 2, -18)
     g.add(muzzle)
     g.userData.muzzle = muzzle
+    // Orient toward bone forward + slight positional offset into hand grip
     g.rotation.y = Math.PI / 2
+    g.position.set(-2, 0, 0)
     return g
   }
 

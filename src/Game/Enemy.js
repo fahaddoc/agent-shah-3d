@@ -89,23 +89,28 @@ export class Enemy {
       }
     })
 
-    // Attach pistol to right hand
+    // Attach pistol to right hand (cm-scale bone)
     let enemyHand = null
-    model.traverse(o => {
-      if (o.name === 'mixamorig:RightHand') enemyHand = o
-    })
+    model.traverse(o => { if (o.name === 'mixamorig:RightHand') enemyHand = o })
     if (enemyHand) {
       const pistol = new THREE.Group()
       const body = new THREE.Mesh(
-        new THREE.BoxGeometry(0.04, 0.06, 0.16),
-        new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6 })
+        new THREE.BoxGeometry(4, 6, 16),
+        new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.8 })
       )
-      body.position.set(0, 0.02, -0.1)
+      body.position.set(0, 2, -10)
       pistol.add(body)
+      const grip = new THREE.Mesh(
+        new THREE.BoxGeometry(3, 8, 4),
+        new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.6 })
+      )
+      grip.position.set(0, -4, -2)
+      pistol.add(grip)
       const muzzle = new THREE.Object3D()
-      muzzle.position.set(0, 0.02, -0.18)
+      muzzle.position.set(0, 2, -18)
       pistol.add(muzzle)
       pistol.rotation.y = Math.PI / 2
+      pistol.position.set(-2, 0, 0)
       enemyHand.add(pistol)
       this.muzzle = muzzle
     }
