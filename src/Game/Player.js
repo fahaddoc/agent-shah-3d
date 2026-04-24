@@ -271,7 +271,7 @@ export class Player {
           if (child !== this.muzzle && child !== this.flash) child.visible = false
         }
         const model = gltf.scene
-        model.scale.setScalar(1.9)
+        model.scale.setScalar(1.2)
         // Dump mesh + bone names once for debugging (only player)
         const meshNames = []
         const boneNames = []

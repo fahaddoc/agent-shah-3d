@@ -56,7 +56,7 @@ export class Enemy {
           if (!keep.has(child)) child.visible = false
         }
         const model = gltf.scene
-        model.scale.setScalar(1.9)
+        model.scale.setScalar(1.2)
         // Hide visor + strip textures + dark crimson suit for gangster enemy look
         model.traverse(o => {
           if (!o.isMesh) return
