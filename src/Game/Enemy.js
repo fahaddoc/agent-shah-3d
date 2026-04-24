@@ -423,16 +423,13 @@ export class Enemy {
     this._allEnemies = allEnemies
     if (this.mixer) this.mixer.update(delta)
 
-    // Sync pistol to hand bone world transform
+    // Sync pistol POSITION to right-hand; rotation locked to character forward
     if (this.pistolMesh && this.rightHandBone) {
       const pos = new THREE.Vector3()
-      const quat = new THREE.Quaternion()
       this.rightHandBone.getWorldPosition(pos)
-      this.rightHandBone.getWorldQuaternion(quat)
       this.group.worldToLocal(pos)
       this.pistolMesh.position.copy(pos)
-      const groupQuatInv = this.group.getWorldQuaternion(new THREE.Quaternion()).invert()
-      this.pistolMesh.quaternion.copy(quat).premultiply(groupQuatInv)
+      this.pistolMesh.rotation.set(0, Math.PI, 0)
     }
     if (!this.alive) {
       this._updateBullets(delta, playerPos, onHitPlayer)

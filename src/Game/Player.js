@@ -604,18 +604,14 @@ export class Player {
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
 
-    // Sync pistol to right-hand bone world transform (every frame, after mixer updates skeleton)
+    // Sync pistol POSITION to right-hand (rotation stays aligned with character forward)
     if (this.pistolMesh && this.rightHandBone) {
       const pos = new THREE.Vector3()
-      const quat = new THREE.Quaternion()
       this.rightHandBone.getWorldPosition(pos)
-      this.rightHandBone.getWorldQuaternion(quat)
-      // Convert world → group local (since pistol is parented to group)
       this.group.worldToLocal(pos)
       this.pistolMesh.position.copy(pos)
-      // For rotation, need to convert world quat to local group quat
-      const groupQuatInv = this.group.getWorldQuaternion(new THREE.Quaternion()).invert()
-      this.pistolMesh.quaternion.copy(quat).premultiply(groupQuatInv)
+      // Orientation: identity — pistol barrel points character-forward (-Z local in group)
+      this.pistolMesh.rotation.set(0, Math.PI, 0)
     }
 
     // Anim state machine (GLB only)
