@@ -506,28 +506,20 @@ export class Player {
   }
 
   _buildHandPistol() {
-    // Mixamo RightHand local axes: X = thumb, Y = palm-up, Z = wrist→fingers (forward from palm)
-    // Barrel should extend along +Z (forward), grip down -Y.
+    // Diagnostic-sized BRIGHT pistol to guarantee visibility while tuning placement.
     const g = new THREE.Group()
-    const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.9, roughness: 0.25 })
-    const slideMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, metalness: 0.95, roughness: 0.2 })
-    // Barrel — long along Z, slightly thick along X/Y
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 0.18), gunMat)
-    body.position.set(0, 0, 0.09)  // forward from hand
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xff8800, emissiveIntensity: 0.4 })
+    // Pistol ~25cm for easy visibility
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.25), gunMat)
+    body.position.set(0, 0, 0.12)
     g.add(body)
-    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.02, 0.18), slideMat)
-    slide.position.set(0, 0.03, 0.09)
-    g.add(slide)
-    // Grip — down from palm
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.08, 0.04), gunMat)
-    grip.position.set(0, -0.05, 0.02)
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.08), gunMat)
+    grip.position.set(0, -0.1, 0.02)
     g.add(grip)
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, 0, 0.2)
+    muzzle.position.set(0, 0, 0.26)
     g.add(muzzle)
     g.userData.muzzle = muzzle
-    // Sit pistol in palm (wrist side), no rotation — hand's +Z is already forward
-    g.position.set(0, 0, 0.02)
     return g
   }
 
