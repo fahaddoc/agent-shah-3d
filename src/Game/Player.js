@@ -332,9 +332,17 @@ export class Player {
       }
     }
 
-    loader.load(
-      '/assets/models/agent.glb',
-      (gltf) => {
+    // Load Joe + Soldier (for animations) in parallel
+    const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
+    Promise.all([
+      loadGLB('/assets/models/agent.glb'),
+      loadGLB('/assets/models/enemy.glb').catch(() => null)  // Soldier as animation source
+    ]).then(([gltf, animGltf]) => this._handleJoeLoaded(gltf, animGltf))
+    return
+  }
+
+  _handleJoeLoaded(gltf, animGltf) {
+    {
         // Hide procedural parts (keep ring on ground)
         for (const child of [...this.group.children]) {
           if (child !== this.muzzle && child !== this.flash) child.visible = false
@@ -383,39 +391,39 @@ export class Player {
           this.muzzle = pistolGroup.userData.muzzle
         }
 
-        if (gltf.animations && gltf.animations.length) {
-          this.mixer = new THREE.AnimationMixer(model)
-          this.actions = {}
-          this.clipByName = {}
-          for (const clip of gltf.animations) {
-            this.clipByName[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
-          }
-          // Fuzzy-map by substring
-          const pick = (...keys) => {
-            for (const k of keys) {
-              for (const [name, action] of Object.entries(this.clipByName)) {
-                if (name.includes(k)) return action
-              }
-            }
-            return null
-          }
-          this.actions.idle  = pick('idle', 'stand', 'tpose')
-          this.actions.walk  = pick('walk', 'strafe')
-          this.actions.run   = pick('run', 'jog', 'sprint')
-          this.actions.fire  = pick('fire', 'shoot', 'pistol')
-          this.actions.dodge = pick('dodge', 'roll', 'dash')
-          // Fallback: if no walk, use idle; if no run, use walk
-          if (!this.actions.idle) this.actions.idle = Object.values(this.clipByName)[0]
-          if (!this.actions.walk) this.actions.walk = this.actions.idle
-          if (!this.actions.run)  this.actions.run  = this.actions.walk
+        // Gather animations: Joe's own (T-pose) + Soldier's (Idle/Walk/Run) for retarget
+        this.mixer = new THREE.AnimationMixer(model)
+        this.actions = {}
+        this.clipByName = {}
 
-          this._switchTo('idle')
+        const registerClips = (clips) => {
+          for (const clip of (clips || [])) {
+            const name = (clip.name || 'anim').toLowerCase()
+            try {
+              this.clipByName[name] = this.mixer.clipAction(clip)
+            } catch (e) {}
+          }
         }
-        console.log('Player GLB animations:', gltf.animations?.map(a => a.name))
-      },
-      undefined,
-      () => { /* no GLB present — keep procedural, silent */ }
-    )
+        registerClips(gltf.animations)
+        // Soldier's animations (both share mixamorig: bone names so clips should apply)
+        if (animGltf) registerClips(animGltf.animations)
+
+        const pick = (...keys) => {
+          for (const k of keys) for (const [n, a] of Object.entries(this.clipByName)) if (n.includes(k)) return a
+          return null
+        }
+        this.actions.idle  = pick('idle')
+        this.actions.walk  = pick('walk')
+        this.actions.run   = pick('run', 'jog')
+        this.actions.fire  = pick('fire', 'shoot')
+        this.actions.dodge = pick('dodge', 'roll')
+        if (!this.actions.idle) this.actions.idle = Object.values(this.clipByName)[0]
+        if (!this.actions.walk) this.actions.walk = this.actions.idle
+        if (!this.actions.run)  this.actions.run  = this.actions.walk
+
+        this._switchTo('idle')
+        console.log('Player animations available:', Object.keys(this.clipByName))
+    }
   }
 
   _setupCustomAvatar(avatarGltf, animGltf) {
