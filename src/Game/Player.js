@@ -318,15 +318,15 @@ export class Player {
     if (target) {
       aimX = target.position.x - this.position.x
       aimZ = target.position.z - this.position.z
+    } else if (moving) {
+      // Face/aim = movement direction
+      aimX = this.velocity.x
+      aimZ = this.velocity.z
     } else {
-      raycaster.setFromCamera({ x: inputs.mouse.ndcX, y: inputs.mouse.ndcY }, window.__GAME__.camera.instance)
-      const hit = new THREE.Vector3()
-      if (raycaster.ray.intersectPlane(groundPlane, hit)) {
-        aimX = hit.x - this.position.x
-        aimZ = hit.z - this.position.z
-      } else {
-        aimX = this.aim.x; aimZ = this.aim.z
-      }
+      // Idle — keep last aim (derived from group rotation)
+      const rot = this.group.rotation.y
+      aimX = -Math.sin(rot)
+      aimZ = -Math.cos(rot)
     }
     const aimLen = Math.hypot(aimX, aimZ) || 1
     aimX /= aimLen; aimZ /= aimLen
@@ -335,12 +335,14 @@ export class Player {
     // Determine fire intent first (affects facing)
     const wantFire = inputs.mouse.down || inputs.isDown(' ') || inputs.isDown('spacebar')
 
-    // Face MOVEMENT direction when moving (use velocity, not raw input); AIM otherwise
+    // Facing: movement direction when moving, else aim (auto-target); mouse ignored
     let desiredYaw
-    if (moving && !target && !wantFire) {
+    if (target) {
+      desiredYaw = Math.atan2(aimX, aimZ) + Math.PI
+    } else if (moving) {
       desiredYaw = Math.atan2(this.velocity.x, this.velocity.z) + Math.PI
     } else {
-      desiredYaw = Math.atan2(aimX, aimZ) + Math.PI
+      desiredYaw = this.group.rotation.y  // hold
     }
     // smooth-rotate
     const cur = this.group.rotation.y
