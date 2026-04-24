@@ -702,6 +702,12 @@ export class Player {
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
 
+    // Takedown cinematic (overrides everything)
+    if (this._takedownActive) {
+      this._updateTakedown(delta)
+      // freeze player movement
+      this.velocity.set(0, 0, 0)
+    }
     // Procedural stab arm thrust — rotates right arm + forearm forward briefly
     if (this._stabTime > 0 && this.rightArmBone && this.rightForeArmBone) {
       this._stabTime -= delta
@@ -881,7 +887,8 @@ export class Player {
   }
 
   _stabMelee(enemies, onHitEnemy) {
-    // Find nearest enemy in 3m range (any direction — auto-face + lunge)
+    if (this._takedownActive) return  // already executing
+    // Find nearest alive enemy in 3m range
     const STAB_RANGE = 3.0
     let target = null, bestDist = STAB_RANGE
     for (const e of enemies) {
@@ -892,32 +899,109 @@ export class Player {
       if (d < bestDist) { bestDist = d; target = e }
     }
     if (target) {
-      // Face target + lunge to stab distance (0.9m away)
-      const dx = target.position.x - this.position.x
-      const dz = target.position.z - this.position.z
+      this._startTakedown(target, enemies, onHitEnemy)
+    } else {
+      // Air stab — just animation, no kill
+      this._stabTime = 0.35
+      const w = this.weapons?.pencil
+      if (w) w.userData.stabTime = 0.35
+    }
+  }
+
+  _startTakedown(target, enemies, onHitEnemy) {
+    this._takedownActive = true
+    this._takedownTarget = target
+    this._takedownAll = enemies
+    this._takedownDmgFn = onHitEnemy
+    this._takedownStage = 'approach'
+    this._takedownT = 0
+    // Freeze enemy
+    target._frozenForTakedown = true
+    // Disable enemy vision/fire during takedown
+  }
+
+  _updateTakedown(delta) {
+    if (!this._takedownActive) return
+    const t = this._takedownTarget
+    if (!t || !t.alive) { this._endTakedown(); return }
+    this._takedownT += delta
+
+    // Approach: 0.25s snap-face
+    if (this._takedownStage === 'approach') {
+      const dx = t.position.x - this.position.x
+      const dz = t.position.z - this.position.z
       const d = Math.hypot(dx, dz) || 1
       const nx = dx / d, nz = dz / d
-      // Snap player to stab position (0.9m from target)
-      const lungeX = target.position.x - nx * 0.9
-      const lungeZ = target.position.z - nz * 0.9
+      // Move to 0.7m from enemy
+      const lungeX = t.position.x - nx * 0.7
+      const lungeZ = t.position.z - nz * 0.7
       this.position.x = lungeX
       this.position.z = lungeZ
       if (this.physicsBody) {
         this.physicsBody.setNextKinematicTranslation({ x: lungeX, y: this.position.y + 0.9, z: lungeZ })
       }
-      // Face target
       this.aim.set(nx, 0, nz)
       this.group.rotation.y = Math.atan2(nx, nz) + Math.PI
-      // Damage
-      onHitEnemy(target, 80, enemies)
-      this._stabHit = true
-    } else {
-      this._stabHit = false
+      if (this._takedownT > 0.15) {
+        this._takedownStage = 'grab'
+        this._takedownT = 0
+      }
     }
-    // Trigger stab animation
-    this._stabTime = 0.35
-    const w = this.weapons?.pencil
-    if (w) w.userData.stabTime = 0.35
+    // Grab: 0.35s — left arm reach forward, enemy tilted back slightly
+    else if (this._takedownStage === 'grab') {
+      if (this.rightArmBone && this._armRestQuat) {
+        // Pull enemy-facing arm forward (use left arm here if we had bone, fallback to right)
+        const p = Math.min(1, this._takedownT / 0.35)
+        const rot = new THREE.Euler(-p * 1.0, 0, 0)
+        const q = new THREE.Quaternion().setFromEuler(rot)
+        this.rightArmBone.quaternion.multiplyQuaternions(this._armRestQuat, q)
+      }
+      // Tilt enemy back (throat grab)
+      t.group.rotation.x = -this._takedownT * 0.5
+      if (this._takedownT > 0.35) {
+        this._takedownStage = 'stab'
+        this._takedownT = 0
+      }
+    }
+    // Stab: 0.3s — thrust + kill
+    else if (this._takedownStage === 'stab') {
+      if (this.rightArmBone && this.rightForeArmBone && this._armRestQuat && this._foreArmRestQuat) {
+        const p = Math.min(1, this._takedownT / 0.3)
+        const pulse = Math.sin(p * Math.PI)
+        const arm = new THREE.Euler(-1.3, 0, 0)
+        this.rightArmBone.quaternion.multiplyQuaternions(this._armRestQuat, new THREE.Quaternion().setFromEuler(arm))
+        const fore = new THREE.Euler(-pulse * 0.8, 0, 0)
+        this.rightForeArmBone.quaternion.multiplyQuaternions(this._foreArmRestQuat, new THREE.Quaternion().setFromEuler(fore))
+      }
+      const w = this.weapons?.pencil
+      if (w && !w.userData.stabTime) w.userData.stabTime = 0.3
+      // Trigger damage at stab moment (mid-pulse)
+      if (!this._stabDealt && this._takedownT > 0.15) {
+        this._takedownDmgFn(t, 200, this._takedownAll)  // instant kill dmg
+        this._stabDealt = true
+      }
+      if (this._takedownT > 0.3) {
+        this._takedownStage = 'fall'
+        this._takedownT = 0
+      }
+    }
+    // Fall: 0.5s — enemy rotates to ground
+    else if (this._takedownStage === 'fall') {
+      const p = Math.min(1, this._takedownT / 0.5)
+      t.group.rotation.x = -0.175 + p * (Math.PI / 2 + 0.175)  // from slight back-tilt to flat on ground
+      t.group.position.y = p * -0.1  // sink slightly
+      if (this._takedownT > 0.5) {
+        this._endTakedown()
+      }
+    }
+  }
+
+  _endTakedown() {
+    this._takedownActive = false
+    this._takedownStage = null
+    this._stabDealt = false
+    if (this._takedownTarget) this._takedownTarget._frozenForTakedown = false
+    this._takedownTarget = null
   }
 
   shoot() {
