@@ -327,7 +327,7 @@ export class Player {
           const lname = (o.name || '').toLowerCase()
           const matName = (o.material?.name || '').toLowerCase()
           console.log('Player mesh:', o.name, 'material:', o.material?.name)
-          // Hide helmet / visor / skeleton joints visualizer
+          // Hide helmet / visor / skeleton joints visualizer / eyelashes (artifact)
           if (lname.includes('helmet') || lname.includes('vest') || lname.includes('goggles') ||
               lname.includes('backpack') || lname.includes('visor') ||
               lname.includes('joint') || lname.includes('bone') ||
@@ -336,19 +336,7 @@ export class Player {
             console.log('  → hidden')
             return
           }
-          // Strip camo texture + jet black PBR
-          if (o.material) {
-            const mat = o.material.clone()
-            if (mat.color) mat.color.setHex(0x0a0a0e)
-            if (mat.map) mat.map = null
-            if (mat.normalMap) mat.normalMap = null
-            if (mat.roughnessMap) mat.roughnessMap = null
-            if (mat.metalnessMap) mat.metalnessMap = null
-            mat.roughness = 0.4
-            mat.metalness = 0.1
-            if (mat.emissive) mat.emissive.setHex(0x000000)
-            o.material = mat
-          }
+          // Keep original textures (Joe's suit/shirt/tie/hair look as-designed)
         })
         this.group.add(model)
         this.glbModel = model
