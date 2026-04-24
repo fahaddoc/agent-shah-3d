@@ -504,26 +504,28 @@ export class Player {
   }
 
   _buildHandPistol() {
+    // Pistol built as child of hand bone. Mixamo Joe is FBX→GLB with inherited scale ≈ 0.01 from root.
+    // Geometry in meters — final visible size = geo * model.scale(1.2) * bone inherited scale (varies).
+    // Use generous values + bright gun so visibility certain while tuning.
     const g = new THREE.Group()
-    // Joe's mixamo bones appear in cm units (not meters) — use larger values
-    const gunMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.8, roughness: 0.3 })
-    const slideMat = new THREE.MeshStandardMaterial({ color: 0x404045, metalness: 0.9, roughness: 0.25 })
-    const body = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 16), gunMat)
-    body.position.set(0, 2, -10)
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.9, roughness: 0.25 })
+    const slideMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.95, roughness: 0.2 })
+    // Big values — Mixamo hands use ~0.01 inherited scale after export
+    const body = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 30), gunMat)
+    body.position.set(0, 4, -20)
     g.add(body)
-    const slide = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.5, 16), slideMat)
-    slide.position.set(0, 4.5, -10)
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(7, 5, 30), slideMat)
+    slide.position.set(0, 9, -20)
     g.add(slide)
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(3, 8, 4), gunMat)
-    grip.position.set(0, -4, -2)
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(6, 16, 8), gunMat)
+    grip.position.set(0, -8, -5)
     g.add(grip)
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, 2, -18)
+    muzzle.position.set(0, 4, -35)
     g.add(muzzle)
     g.userData.muzzle = muzzle
-    // Orient toward bone forward + slight positional offset into hand grip
-    g.rotation.y = Math.PI / 2
-    g.position.set(-2, 0, 0)
+    // Align barrel along hand forward (Z-)
+    g.rotation.set(0, Math.PI / 2, 0)
     return g
   }
 

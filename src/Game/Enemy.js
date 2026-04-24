@@ -94,23 +94,21 @@ export class Enemy {
     model.traverse(o => { if (o.name === 'mixamorig:RightHand') enemyHand = o })
     if (enemyHand) {
       const pistol = new THREE.Group()
-      const body = new THREE.Mesh(
-        new THREE.BoxGeometry(4, 6, 16),
-        new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.8 })
-      )
-      body.position.set(0, 2, -10)
+      const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.9 })
+      const slideMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.95 })
+      const body = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 30), gunMat)
+      body.position.set(0, 4, -20)
       pistol.add(body)
-      const grip = new THREE.Mesh(
-        new THREE.BoxGeometry(3, 8, 4),
-        new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.6 })
-      )
-      grip.position.set(0, -4, -2)
+      const slide = new THREE.Mesh(new THREE.BoxGeometry(7, 5, 30), slideMat)
+      slide.position.set(0, 9, -20)
+      pistol.add(slide)
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(6, 16, 8), gunMat)
+      grip.position.set(0, -8, -5)
       pistol.add(grip)
       const muzzle = new THREE.Object3D()
-      muzzle.position.set(0, 2, -18)
+      muzzle.position.set(0, 4, -35)
       pistol.add(muzzle)
-      pistol.rotation.y = Math.PI / 2
-      pistol.position.set(-2, 0, 0)
+      pistol.rotation.set(0, Math.PI / 2, 0)
       enemyHand.add(pistol)
       this.muzzle = muzzle
     }
