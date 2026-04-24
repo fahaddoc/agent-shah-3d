@@ -332,16 +332,17 @@ export class Player {
       }
     }
 
-    // Load Joe + Soldier (for animations) in parallel
+    // Load Joe-walking + Joe-idle + fire anims in parallel
     const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
     Promise.all([
-      loadGLB('/assets/models/agent.glb'),
-      loadGLB('/assets/models/enemy.glb').catch(() => null)  // Soldier as animation source
-    ]).then(([gltf, animGltf]) => this._handleJoeLoaded(gltf, animGltf))
+      loadGLB('/assets/models/agent.glb'),                        // Joe + walk clip
+      loadGLB('/assets/models/anim-idle.glb').catch(() => null),  // Joe + idle clip
+      loadGLB('/assets/models/anim-fire.glb').catch(() => null)   // Firing Rifle clip
+    ]).then(([gltf, idleGltf, fireGltf]) => this._handleJoeLoaded(gltf, idleGltf, fireGltf))
     return
   }
 
-  _handleJoeLoaded(gltf, animGltf) {
+  _handleJoeLoaded(gltf, idleGltf, fireGltf) {
     {
         // Hide procedural parts (keep ring on ground)
         for (const child of [...this.group.children]) {
@@ -349,6 +350,8 @@ export class Player {
         }
         const model = gltf.scene
         model.scale.setScalar(1.2)
+        // Joe model faces +Z by default — rotate 180° so model forward = -Z (matches movement convention)
+        model.rotation.y = Math.PI
         // Dump mesh + bone names once for debugging (only player)
         const meshNames = []
         const boneNames = []
@@ -391,38 +394,22 @@ export class Player {
           this.muzzle = pistolGroup.userData.muzzle
         }
 
-        // Gather animations: Joe's own (T-pose) + Soldier's (Idle/Walk/Run) for retarget
+        // Build mixer + register clips (agent.glb = walk, anim-idle.glb = idle, anim-fire.glb = fire)
         this.mixer = new THREE.AnimationMixer(model)
         this.actions = {}
-        this.clipByName = {}
-
-        const registerClips = (clips) => {
-          for (const clip of (clips || [])) {
-            const name = (clip.name || 'anim').toLowerCase()
-            try {
-              this.clipByName[name] = this.mixer.clipAction(clip)
-            } catch (e) {}
-          }
+        const makeAction = (clip, label) => {
+          if (!clip) return null
+          clip.name = label  // rename so we can distinguish 'mixamo.com' clips
+          return this.mixer.clipAction(clip)
         }
-        registerClips(gltf.animations)
-        // Soldier's animations (both share mixamorig: bone names so clips should apply)
-        if (animGltf) registerClips(animGltf.animations)
-
-        const pick = (...keys) => {
-          for (const k of keys) for (const [n, a] of Object.entries(this.clipByName)) if (n.includes(k)) return a
-          return null
-        }
-        this.actions.idle  = pick('idle')
-        this.actions.walk  = pick('walk')
-        this.actions.run   = pick('run', 'jog')
-        this.actions.fire  = pick('fire', 'shoot')
-        this.actions.dodge = pick('dodge', 'roll')
-        if (!this.actions.idle) this.actions.idle = Object.values(this.clipByName)[0]
-        if (!this.actions.walk) this.actions.walk = this.actions.idle
-        if (!this.actions.run)  this.actions.run  = this.actions.walk
+        this.actions.walk = makeAction(gltf.animations?.[0], 'walk')
+        this.actions.run  = this.actions.walk  // reuse walk for run (faster playback via timeScale)
+        this.actions.idle = makeAction(idleGltf?.animations?.[0], 'idle') || this.actions.walk
+        this.actions.fire = makeAction(fireGltf?.animations?.[0], 'fire') || this.actions.walk
+        this.actions.dodge = this.actions.run
 
         this._switchTo('idle')
-        console.log('Player animations available:', Object.keys(this.clipByName))
+        console.log('Player actions:', Object.keys(this.actions).filter(k => this.actions[k]))
     }
   }
 
