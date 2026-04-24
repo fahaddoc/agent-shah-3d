@@ -1,5 +1,12 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js'
+
+// Paste your Ready Player Me GLB URL here to swap player model.
+// Example: 'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb'
+// Leave null to use local /assets/models/agent.glb (Soldier)
+const PLAYER_AVATAR_URL = null
+const ANIM_SOURCE_URL   = '/assets/models/agent.glb'  // Soldier provides idle/walk/run/die clips
 
 // Materials reused
 const SUIT  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, roughness: 0.55, metalness: 0.05 })
@@ -239,8 +246,23 @@ export class Player {
     this.group.add(ring)
   }
 
-  _tryLoadGLB() {
+  async _tryLoadGLB() {
     const loader = new GLTFLoader()
+
+    // If custom avatar URL provided, load it + retarget animations from Soldier
+    if (PLAYER_AVATAR_URL) {
+      try {
+        const [avatar, animSrc] = await Promise.all([
+          new Promise((res, rej) => loader.load(PLAYER_AVATAR_URL, res, undefined, rej)),
+          new Promise((res, rej) => loader.load(ANIM_SOURCE_URL, res, undefined, rej))
+        ])
+        this._setupCustomAvatar(avatar, animSrc)
+        return
+      } catch (err) {
+        console.warn('Custom avatar load failed, falling back to Soldier:', err)
+      }
+    }
+
     loader.load(
       '/assets/models/agent.glb',
       (gltf) => {
@@ -297,6 +319,62 @@ export class Player {
       undefined,
       () => { /* no GLB present — keep procedural, silent */ }
     )
+  }
+
+  _setupCustomAvatar(avatarGltf, animGltf) {
+    // Hide procedural parts
+    for (const child of [...this.group.children]) {
+      if (child !== this.muzzle && child !== this.flash) child.visible = false
+    }
+    const model = avatarGltf.scene
+    model.scale.setScalar(1.0)
+    model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+    this.group.add(model)
+    this.glbModel = model
+
+    // Retarget animations from source skeleton to avatar skeleton
+    const animTargetRoot = model
+    this.mixer = new THREE.AnimationMixer(animTargetRoot)
+    this.actions = {}
+    this.clipByName = {}
+
+    // Find source skinned mesh as clip origin
+    let srcRoot = animGltf.scene
+    const retargetOpts = { useTargetMatrix: true }
+    for (const clip of animGltf.animations || []) {
+      try {
+        const retargeted = SkeletonUtils.retargetClip(animTargetRoot, srcRoot, clip, retargetOpts)
+        retargeted.name = clip.name
+        this.clipByName[clip.name.toLowerCase()] = this.mixer.clipAction(retargeted)
+      } catch (e) {
+        // Fallback: use original clip directly (works if bone names match)
+        try {
+          this.clipByName[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
+        } catch {}
+      }
+    }
+
+    const pick = (...keys) => {
+      for (const k of keys) for (const [n, a] of Object.entries(this.clipByName)) if (n.includes(k)) return a
+      return null
+    }
+    this.actions.idle  = pick('idle', 'stand') || Object.values(this.clipByName)[0]
+    this.actions.walk  = pick('walk') || this.actions.idle
+    this.actions.run   = pick('run', 'jog') || this.actions.walk
+    this.actions.fire  = pick('fire', 'shoot') || this.actions.idle
+    this.actions.dodge = pick('dodge', 'roll') || this.actions.run
+
+    this._switchTo('idle')
+
+    // Attach pistol to right hand
+    const rightHand = this._findBone(model, ['RightHand', 'mixamorigRightHand', 'right_hand', 'Hand_R'])
+    if (rightHand) {
+      const pistol = this._buildHandPistol()
+      rightHand.add(pistol)
+      this.muzzle = pistol.userData.muzzle
+    }
+
+    console.log('Custom avatar loaded with', Object.keys(this.clipByName).length, 'retargeted animations')
   }
 
   _findBone(root, nameList) {
