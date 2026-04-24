@@ -250,8 +250,7 @@ export class Player {
         }
         const model = gltf.scene
         model.scale.setScalar(1.1)
-        // Mixamo models face +Z by default — rotate 180° so model forward = world -Z (matches aim/movement convention)
-        model.rotation.y = Math.PI
+        // Soldier GLB natural front = -Z (matches our convention). No extra rotation needed.
         model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
         this.group.add(model)
         this.glbModel = model

@@ -57,7 +57,7 @@ export class Enemy {
         }
         const model = gltf.scene
         model.scale.setScalar(1.1)
-        model.rotation.y = Math.PI  // align to -Z forward
+        // Xbot default front matches convention — no rotation
         model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
         this.group.add(model)
 
