@@ -272,16 +272,35 @@ export class Player {
         }
         const model = gltf.scene
         model.scale.setScalar(1.1)
+        // Dump mesh + bone names once for debugging (only player)
+        const meshNames = []
+        const boneNames = []
+        model.traverse(o => {
+          if (o.isMesh) meshNames.push(o.name)
+          if (o.isBone) boneNames.push(o.name)
+        })
+        console.log('Player meshes:', meshNames)
+        console.log('Player bones (first 30):', boneNames.slice(0, 30))
+
         model.traverse(o => {
           if (!o.isMesh) return
           o.castShadow = true
           o.receiveShadow = true
-          // John Wick suit recolor — override Soldier camo with jet black + slight sheen
+          // Hide helmet / accessories by name heuristic
+          const lname = (o.name || '').toLowerCase()
+          if (lname.includes('helmet') || lname.includes('vest') || lname.includes('goggles') || lname.includes('backpack')) {
+            o.visible = false
+            return
+          }
+          // Strip camo texture + jet black PBR
           if (o.material) {
             const mat = o.material.clone()
             if (mat.color) mat.color.setHex(0x0a0a0e)
-            if (mat.map) mat.map = null           // drop camo texture
-            mat.roughness = 0.45
+            if (mat.map) mat.map = null
+            if (mat.normalMap) mat.normalMap = null
+            if (mat.roughnessMap) mat.roughnessMap = null
+            if (mat.metalnessMap) mat.metalnessMap = null
+            mat.roughness = 0.4
             mat.metalness = 0.1
             if (mat.emissive) mat.emissive.setHex(0x000000)
             o.material = mat
