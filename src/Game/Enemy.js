@@ -95,21 +95,23 @@ export class Enemy {
     this.rightHandBone = enemyHand
     if (enemyHand) {
       const pistol = new THREE.Group()
-      const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.9 })
-      const slideMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, metalness: 0.95 })
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 0.18), gunMat)
-      body.position.set(0, 0, 0.09)
+      const bodyMat  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.85, roughness: 0.35 })
+      const slideMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2e, metalness: 0.95, roughness: 0.25 })
+      const gripMat  = new THREE.MeshStandardMaterial({ color: 0x050507, roughness: 0.8 })
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.04, 0.2), bodyMat)
+      body.position.set(0, -0.01, 0.08)
       pistol.add(body)
-      const slide = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.02, 0.18), slideMat)
-      slide.position.set(0, 0.03, 0.09)
+      const slide = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.035, 0.2), slideMat)
+      slide.position.set(0, 0.022, 0.08)
       pistol.add(slide)
-      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.08, 0.04), gunMat)
-      grip.position.set(0, -0.05, 0.02)
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.11, 0.05), gripMat)
+      grip.position.set(0, -0.07, -0.015)
+      grip.rotation.x = 0.25
       pistol.add(grip)
       const muzzle = new THREE.Object3D()
-      muzzle.position.set(0, 0, 0.2)
+      muzzle.position.set(0, -0.01, 0.19)
       pistol.add(muzzle)
-      this.group.add(pistol)   // parent = group, not bone
+      this.group.add(pistol)
       this.pistolMesh = pistol
       this.muzzle = muzzle
     }

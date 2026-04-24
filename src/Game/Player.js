@@ -506,18 +506,36 @@ export class Player {
   }
 
   _buildHandPistol() {
-    // Diagnostic-sized BRIGHT pistol to guarantee visibility while tuning placement.
+    // Realistic pistol — black metal body + lighter steel slide + grip
     const g = new THREE.Group()
-    const gunMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xff8800, emissiveIntensity: 0.4 })
-    // Pistol ~25cm for easy visibility
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.25), gunMat)
-    body.position.set(0, 0, 0.12)
+    const bodyMat  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.85, roughness: 0.35 })
+    const slideMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2e, metalness: 0.95, roughness: 0.25 })
+    const gripMat  = new THREE.MeshStandardMaterial({ color: 0x050507, metalness: 0.3, roughness: 0.8 })
+
+    // Barrel body (lower)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.04, 0.2), bodyMat)
+    body.position.set(0, -0.01, 0.08)
     g.add(body)
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.08), gunMat)
-    grip.position.set(0, -0.1, 0.02)
+    // Slide (upper, shinier)
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.035, 0.2), slideMat)
+    slide.position.set(0, 0.022, 0.08)
+    g.add(slide)
+    // Sight bump on top rear
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.022), slideMat)
+    sight.position.set(0, 0.045, 0.0)
+    g.add(sight)
+    // Grip (angled slightly back)
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.11, 0.05), gripMat)
+    grip.position.set(0, -0.07, -0.015)
+    grip.rotation.x = 0.25
     g.add(grip)
+    // Trigger guard (thin loop simulated with box)
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.01, 0.04), bodyMat)
+    guard.position.set(0, -0.025, 0.01)
+    g.add(guard)
+    // Muzzle
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, 0, 0.26)
+    muzzle.position.set(0, -0.01, 0.19)
     g.add(muzzle)
     g.userData.muzzle = muzzle
     return g
