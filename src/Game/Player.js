@@ -418,7 +418,17 @@ export class Player {
         this.actions.run   = this.actions.walk
         this.actions.idle  = makeAction(idleGltf?.animations?.[0], 'idle', true) || this.actions.walk
         this.actions.fire  = makeAction(fireGltf?.animations?.[0], 'fire', false)
-        this.actions.stab  = makeAction(stabGltf?.animations?.[0], 'stab', false)
+        // Stab animation — additive blend (delta from rest pose), layers over walk/idle
+        if (stabGltf?.animations?.[0]) {
+          const stabClip = stabGltf.animations[0].clone()
+          stripRootMotion(stabClip)
+          stabClip.name = 'stab'
+          THREE.AnimationUtils.makeClipAdditive(stabClip)
+          this.actions.stab = this.mixer.clipAction(stabClip)
+          this.actions.stab.blendMode = THREE.AdditiveAnimationBlendMode
+          this.actions.stab.setLoop(THREE.LoopOnce, 1)
+          this.actions.stab.clampWhenFinished = false
+        }
         this.actions.dodge = this.actions.run
 
         this._switchTo('idle')
@@ -859,7 +869,14 @@ export class Player {
       target = e
     }
     if (target) onHitEnemy(target, 80, enemies)
-    // Pencil mesh thrust forward — visual stab (Mixamo anim disabled: causes T-pose on Joe skeleton)
+    // Stab animation layered additively on top of walk/idle (no T-pose override)
+    const stab = this.actions?.stab
+    if (stab) {
+      stab.reset()
+      stab.setEffectiveWeight(1.0)
+      stab.play()
+    }
+    // Pencil mesh thrust forward
     const w = this.weapons?.pencil
     if (w) w.userData.stabTime = 0.3
   }
