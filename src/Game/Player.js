@@ -272,10 +272,65 @@ export class Player {
         }
         const model = gltf.scene
         model.scale.setScalar(1.1)
-        // Soldier GLB natural front = -Z (matches our convention). No extra rotation needed.
-        model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+        model.traverse(o => {
+          if (!o.isMesh) return
+          o.castShadow = true
+          o.receiveShadow = true
+          // John Wick suit recolor — override Soldier camo with jet black + slight sheen
+          if (o.material) {
+            const mat = o.material.clone()
+            if (mat.color) mat.color.setHex(0x0a0a0e)
+            if (mat.map) mat.map = null           // drop camo texture
+            mat.roughness = 0.45
+            mat.metalness = 0.1
+            if (mat.emissive) mat.emissive.setHex(0x000000)
+            o.material = mat
+          }
+        })
         this.group.add(model)
         this.glbModel = model
+
+        // White shirt strip on chest (spine bone) + black tie
+        const spine = this._findBone(model, ['Spine2', 'Spine1', 'Spine', 'chest'])
+        if (spine) {
+          const shirt = new THREE.Mesh(
+            new THREE.BoxGeometry(12, 18, 2),
+            new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.7 })
+          )
+          shirt.position.set(0, 6, 9)
+          spine.add(shirt)
+          const tie = new THREE.Mesh(
+            new THREE.BoxGeometry(3, 20, 0.8),
+            new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.4 })
+          )
+          tie.position.set(0, 4, 10.5)
+          spine.add(tie)
+        }
+
+        // Hair + beard attached to head bone
+        const head = this._findBone(model, ['Head', 'mixamorigHead', 'head'])
+        if (head) {
+          const hairMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.9 })
+          // Cap of hair
+          const hairTop = new THREE.Mesh(new THREE.SphereGeometry(9, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat)
+          hairTop.position.set(0, 4, 0)
+          head.add(hairTop)
+          // Long back swept hair
+          const hairBack = new THREE.Mesh(new THREE.BoxGeometry(14, 14, 4), hairMat)
+          hairBack.position.set(0, 2, 7)
+          head.add(hairBack)
+          const hairLonger = new THREE.Mesh(new THREE.BoxGeometry(12, 12, 2), hairMat)
+          hairLonger.position.set(0, -6, 8)
+          head.add(hairLonger)
+          // Beard
+          const beardMat = new THREE.MeshStandardMaterial({ color: 0x150a08, roughness: 0.95 })
+          const beard = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 5), beardMat)
+          beard.position.set(0, -7, -7)
+          head.add(beard)
+          const stache = new THREE.Mesh(new THREE.BoxGeometry(7, 1.5, 2), beardMat)
+          stache.position.set(0, -4.5, -9)
+          head.add(stache)
+        }
 
         // Attach pistol to right hand bone
         const rightHand = this._findBone(model, ['RightHand', 'mixamorigRightHand', 'right_hand', 'Hand_R'])
