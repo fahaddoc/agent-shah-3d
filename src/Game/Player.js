@@ -961,9 +961,8 @@ export class Player {
       t.group.rotation.z = Math.sin(fallP * Math.PI) * 0.15
     }
 
-    // End at 2.8s + remove enemy
+    // End at 2.8s — enemy body stays on floor (no removal)
     if (this._takedownT > 2.8) {
-      if (t.scene && t.group) t.scene.remove(t.group)
       this._endTakedown()
     }
   }
