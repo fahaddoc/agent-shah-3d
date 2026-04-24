@@ -51,7 +51,6 @@ export class Enemy {
     loader.load(
       '/assets/models/enemy.glb',
       (gltf) => {
-        // Hide procedural body/head/gun but keep HP bar, vision cone, icon
         const keep = new Set([this.hpBar, this.visionMesh, this.alertIcon])
         for (const child of [...this.group.children]) {
           if (!keep.has(child)) child.visible = false
@@ -62,12 +61,37 @@ export class Enemy {
         this.group.add(model)
         if (gltf.animations && gltf.animations.length) {
           this.mixer = new THREE.AnimationMixer(model)
-          this.mixer.clipAction(gltf.animations[0]).play()
+          this.actions = {}
+          const byName = {}
+          for (const clip of gltf.animations) byName[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
+          const pick = (...keys) => {
+            for (const k of keys) for (const [n, a] of Object.entries(byName)) if (n.includes(k)) return a
+            return null
+          }
+          this.actions.idle = pick('idle', 'stand', 'tpose')
+          this.actions.walk = pick('walk')
+          this.actions.run  = pick('run', 'jog')
+          this.actions.fire = pick('fire', 'shoot')
+          this.actions.die  = pick('die', 'death')
+          if (!this.actions.idle) this.actions.idle = Object.values(byName)[0]
+          if (!this.actions.walk) this.actions.walk = this.actions.idle
+          if (!this.actions.run)  this.actions.run  = this.actions.walk
+          this._switchAnim('idle')
         }
+        console.log('Enemy GLB animations:', gltf.animations?.map(a => a.name))
       },
       undefined,
-      () => { /* no GLB — keep procedural */ }
+      () => {}
     )
+  }
+
+  _switchAnim(name, fadeSec = 0.2) {
+    if (!this.actions || !this.actions[name] || this._currentActionName === name) return
+    const next = this.actions[name]
+    next.reset().fadeIn(fadeSec).play()
+    if (this._currentAction && this._currentAction !== next) this._currentAction.fadeOut(fadeSec)
+    this._currentAction = next
+    this._currentActionName = name
   }
 
   _buildMesh() {
@@ -275,6 +299,28 @@ export class Enemy {
     this.group.position.copy(this.position)
     this.group.rotation.y = this.facing
 
+    // Anim state based on state machine
+    if (this.actions) {
+      if (this.state === 'ALERT') {
+        const dx = playerPos.x - this.position.x
+        const dz = playerPos.z - this.position.z
+        const dist = Math.hypot(dx, dz)
+        if (dist < this.fireRange && this.fireCooldown < 0.2 && this.actions.fire) {
+          this._switchAnim('fire')
+        } else if (dist > this.preferredDist) {
+          this._switchAnim('run')
+        } else {
+          this._switchAnim('idle')
+        }
+      } else if (this.state === 'SUSPICIOUS') {
+        this._switchAnim('walk')
+      } else {
+        // PATROL: walk if moving (not paused), idle if paused
+        if (this.patrolPause > 0) this._switchAnim('idle')
+        else this._switchAnim('walk')
+      }
+    }
+
     // HP bar billboard
     this.hpBar.lookAt(camera.position)
     this.hpFill.scale.x = Math.max(0, this.hp / this.maxHp)
@@ -427,11 +473,15 @@ export class Enemy {
 
   die() {
     this.alive = false
-    this.group.rotation.x = Math.PI / 2
-    this.group.position.y = 0.2
     this.hpBar.visible = false
     this.visionMesh.visible = false
     this.alertIcon.visible = false
-    setTimeout(() => this.scene.remove(this.group), 1500)
+    if (this.actions?.die) {
+      this._switchAnim('die', 0.1)
+    } else {
+      this.group.rotation.x = Math.PI / 2
+      this.group.position.y = 0.2
+    }
+    setTimeout(() => this.scene.remove(this.group), 1800)
   }
 }

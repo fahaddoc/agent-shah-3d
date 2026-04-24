@@ -244,7 +244,7 @@ export class Player {
     loader.load(
       '/assets/models/agent.glb',
       (gltf) => {
-        // Hide procedural model
+        // Hide procedural parts (keep ring on ground)
         for (const child of [...this.group.children]) {
           if (child !== this.muzzle && child !== this.flash) child.visible = false
         }
@@ -253,20 +253,63 @@ export class Player {
         model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
         this.group.add(model)
         this.glbModel = model
+
         if (gltf.animations && gltf.animations.length) {
           this.mixer = new THREE.AnimationMixer(model)
           this.actions = {}
+          this.clipByName = {}
           for (const clip of gltf.animations) {
-            this.actions[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
+            this.clipByName[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
           }
-          const first = Object.values(this.actions)[0]
-          if (first) first.play()
+          // Fuzzy-map by substring
+          const pick = (...keys) => {
+            for (const k of keys) {
+              for (const [name, action] of Object.entries(this.clipByName)) {
+                if (name.includes(k)) return action
+              }
+            }
+            return null
+          }
+          this.actions.idle  = pick('idle', 'stand', 'tpose')
+          this.actions.walk  = pick('walk', 'strafe')
+          this.actions.run   = pick('run', 'jog', 'sprint')
+          this.actions.fire  = pick('fire', 'shoot', 'pistol')
+          this.actions.dodge = pick('dodge', 'roll', 'dash')
+          // Fallback: if no walk, use idle; if no run, use walk
+          if (!this.actions.idle) this.actions.idle = Object.values(this.clipByName)[0]
+          if (!this.actions.walk) this.actions.walk = this.actions.idle
+          if (!this.actions.run)  this.actions.run  = this.actions.walk
+
+          this._switchTo('idle')
         }
-        console.log('Player GLB loaded:', gltf.animations?.map(a => a.name))
+        console.log('Player GLB animations:', gltf.animations?.map(a => a.name))
       },
       undefined,
       () => { /* no GLB present — keep procedural, silent */ }
     )
+  }
+
+  _switchTo(name, fadeSec = 0.2) {
+    if (!this.actions || !this.actions[name]) return
+    const next = this.actions[name]
+    if (this._currentAction === next) return
+    next.reset().fadeIn(fadeSec).play()
+    if (this._currentAction) this._currentAction.fadeOut(fadeSec)
+    this._currentAction = next
+    this._currentActionName = name
+  }
+
+  _playOneShot(name, fadeSec = 0.1) {
+    if (!this.actions || !this.actions[name]) return false
+    const action = this.actions[name]
+    action.reset()
+    action.setLoop(THREE.LoopOnce, 1)
+    action.clampWhenFinished = true
+    action.fadeIn(fadeSec).play()
+    if (this._currentAction && this._currentAction !== action) this._currentAction.fadeOut(fadeSec)
+    this._currentAction = action
+    this._currentActionName = name
+    return true
   }
 
   registerPhysics(physics) {
@@ -318,6 +361,34 @@ export class Player {
     const speedNow = Math.hypot(this.velocity.x, this.velocity.z)
     const moving = speedNow > 0.4
     if (this.mixer) this.mixer.update(delta)
+
+    // Anim state machine (GLB only)
+    if (this.actions) {
+      const wantFireNow = inputs.mouse.down || inputs.isDown(' ') || inputs.isDown('spacebar')
+      const dodgePressed = inputs.consumePress('shift')
+      if (dodgePressed && !this._dodging) {
+        this._dodging = true
+        // Instant speed burst in current movement direction (or facing)
+        const kickDir = (dLen > 0)
+          ? { x: desiredX / dLen, z: desiredZ / dLen }
+          : { x: -Math.sin(this.group.rotation.y), z: -Math.cos(this.group.rotation.y) }
+        this.velocity.x = kickDir.x * 18
+        this.velocity.z = kickDir.z * 18
+        if (this.actions.dodge) this._playOneShot('dodge')
+        else if (this.actions.run) this._switchTo('run', 0.05)
+        setTimeout(() => { this._dodging = false }, 450)
+      } else if (!this._dodging) {
+        if (wantFireNow && this.actions.fire) {
+          this._switchTo('fire')
+        } else if (speedNow > 5.5) {
+          this._switchTo('run')
+        } else if (moving) {
+          this._switchTo('walk')
+        } else {
+          this._switchTo('idle')
+        }
+      }
+    }
     if (moving) {
       const speedRatio = speedNow / this.maxSpeed
       this.walkPhase += delta * (8 + speedRatio * 6)
