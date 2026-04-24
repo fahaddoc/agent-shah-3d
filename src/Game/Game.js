@@ -65,19 +65,19 @@ export class Game {
       ])
     ]
 
-    // Cinematic intro state
-    this.phase = PHASE.INTRO
-    this.introTime = 0
+    // No cinematic — player spawns just outside door, controls active immediately
+    this.phase = PHASE.PLAY
     const halfSize = this.world.halfSize
-    this.player.position.set(0, 0, halfSize + 14)
+    this.player.position.set(0, 0, halfSize + 4)
     this.player.group.position.copy(this.player.position)
     this.player.aim.set(0, 0, -1)
     this.player.group.rotation.y = 0
-    // Cinematic camera initial pose
+    // Camera behind player
     this.camera.setInstant(
-      new THREE.Vector3(8, 3.5, halfSize + 6),
-      new THREE.Vector3(0, 1.4, halfSize + 14)
+      new THREE.Vector3(0, this.camera.height, halfSize + 4 + this.camera.distance),
+      new THREE.Vector3(0, 1.4, halfSize + 4)
     )
+    this.world.setDoorOpen(0)
 
     this.ticker.on((d, e) => this._tick(d, e))
   }
@@ -169,10 +169,13 @@ export class Game {
   }
 
   _tickPlay(delta, elapsed) {
-    // Slowly close door behind player after entering (optional polish)
-    if (this.world.doorOpen > 0) {
-      this.world.setDoorOpen(this.world.doorOpen - delta * 0.25)
-    }
+    // Auto-open door by proximity (open as player gets closer, close when far)
+    const halfSize = this.world.halfSize
+    const distToDoor = Math.abs(this.player.position.z - halfSize)
+    const openRadius = 6
+    const targetOpen = distToDoor < openRadius ? 1 - (distToDoor / openRadius) : 0
+    const doorLerp = Math.min(delta * 3, 1)
+    this.world.setDoorOpen(this.world.doorOpen + (targetOpen - this.world.doorOpen) * doorLerp)
 
     this.player.update(
       delta,

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 const ENEMY_BULLET_GEO = new THREE.SphereGeometry(0.12, 8, 8)
 const ENEMY_BULLET_MAT = new THREE.MeshBasicMaterial({ color: 0xff3355 })
@@ -42,6 +43,31 @@ export class Enemy {
 
     this._buildMesh()
     scene.add(this.group)
+    this._tryLoadGLB()
+  }
+
+  _tryLoadGLB() {
+    const loader = new GLTFLoader()
+    loader.load(
+      '/assets/models/enemy.glb',
+      (gltf) => {
+        // Hide procedural body/head/gun but keep HP bar, vision cone, icon
+        const keep = new Set([this.hpBar, this.visionMesh, this.alertIcon])
+        for (const child of [...this.group.children]) {
+          if (!keep.has(child)) child.visible = false
+        }
+        const model = gltf.scene
+        model.scale.setScalar(1.1)
+        model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+        this.group.add(model)
+        if (gltf.animations && gltf.animations.length) {
+          this.mixer = new THREE.AnimationMixer(model)
+          this.mixer.clipAction(gltf.animations[0]).play()
+        }
+      },
+      undefined,
+      () => { /* no GLB — keep procedural */ }
+    )
   }
 
   _buildMesh() {
@@ -198,6 +224,7 @@ export class Enemy {
 
   update(delta, playerPos, camera, onHitPlayer, allEnemies = null) {
     this._allEnemies = allEnemies
+    if (this.mixer) this.mixer.update(delta)
     if (!this.alive) {
       this._updateBullets(delta, playerPos, onHitPlayer)
       return

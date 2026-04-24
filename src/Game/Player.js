@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 // Materials reused
 const SUIT  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, roughness: 0.55, metalness: 0.05 })
@@ -35,6 +36,7 @@ export class Player {
     this.group = new THREE.Group()
     this._buildWick()
     scene.add(this.group)
+    this._tryLoadGLB()
 
     this.bulletGeo = new THREE.SphereGeometry(0.08, 8, 8)
     this.bulletMat = new THREE.MeshBasicMaterial({ color: 0xffd44d })
@@ -237,6 +239,36 @@ export class Player {
     this.group.add(ring)
   }
 
+  _tryLoadGLB() {
+    const loader = new GLTFLoader()
+    loader.load(
+      '/assets/models/agent.glb',
+      (gltf) => {
+        // Hide procedural model
+        for (const child of [...this.group.children]) {
+          if (child !== this.muzzle && child !== this.flash) child.visible = false
+        }
+        const model = gltf.scene
+        model.scale.setScalar(1.1)
+        model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+        this.group.add(model)
+        this.glbModel = model
+        if (gltf.animations && gltf.animations.length) {
+          this.mixer = new THREE.AnimationMixer(model)
+          this.actions = {}
+          for (const clip of gltf.animations) {
+            this.actions[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
+          }
+          const first = Object.values(this.actions)[0]
+          if (first) first.play()
+        }
+        console.log('Player GLB loaded:', gltf.animations?.map(a => a.name))
+      },
+      undefined,
+      () => { /* no GLB present — keep procedural, silent */ }
+    )
+  }
+
   registerPhysics(physics) {
     const r = physics.addKinematicCharacter(this.position, 0.9, 0.4)
     this.physicsBody = r.body
@@ -285,6 +317,7 @@ export class Player {
 
     const speedNow = Math.hypot(this.velocity.x, this.velocity.z)
     const moving = speedNow > 0.4
+    if (this.mixer) this.mixer.update(delta)
     if (moving) {
       const speedRatio = speedNow / this.maxSpeed
       this.walkPhase += delta * (8 + speedRatio * 6)
