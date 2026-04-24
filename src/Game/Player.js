@@ -324,12 +324,16 @@ export class Player {
           if (!o.isMesh) return
           o.castShadow = true
           o.receiveShadow = true
-          // Hide helmet / visor / skeleton joints visualizer
           const lname = (o.name || '').toLowerCase()
+          const matName = (o.material?.name || '').toLowerCase()
+          console.log('Player mesh:', o.name, 'material:', o.material?.name)
+          // Hide helmet / visor / skeleton joints visualizer
           if (lname.includes('helmet') || lname.includes('vest') || lname.includes('goggles') ||
               lname.includes('backpack') || lname.includes('visor') ||
-              lname.includes('joint') || lname.includes('bone')) {
+              lname.includes('joint') || lname.includes('bone') ||
+              matName.includes('joint') || matName.includes('bone')) {
             o.visible = false
+            console.log('  → hidden')
             return
           }
           // Strip camo texture + jet black PBR

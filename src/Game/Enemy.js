@@ -63,8 +63,10 @@ export class Enemy {
           o.castShadow = true
           o.receiveShadow = true
           const lname = (o.name || '').toLowerCase()
+          const matName = (o.material?.name || '').toLowerCase()
           if (lname.includes('visor') || lname.includes('helmet') || lname.includes('goggles') ||
-              lname.includes('joint') || lname.includes('bone')) {
+              lname.includes('joint') || lname.includes('bone') ||
+              matName.includes('joint') || matName.includes('bone')) {
             o.visible = false
             return
           }
