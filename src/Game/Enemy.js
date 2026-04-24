@@ -1,5 +1,9 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+
+const ENEMY_DRACO = new DRACOLoader()
+ENEMY_DRACO.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
 
 const ENEMY_BULLET_GEO = new THREE.SphereGeometry(0.12, 8, 8)
 const ENEMY_BULLET_MAT = new THREE.MeshBasicMaterial({ color: 0xff3355 })
@@ -48,6 +52,7 @@ export class Enemy {
 
   _tryLoadGLB() {
     const loader = new GLTFLoader()
+    loader.setDRACOLoader(ENEMY_DRACO)
     loader.load(
       '/assets/models/enemy.glb',
       (gltf) => {

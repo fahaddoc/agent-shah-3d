@@ -1,6 +1,11 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
+
+// Shared DRACO decoder (needed for Mixamo-compressed GLBs)
+const SHARED_DRACO = new DRACOLoader()
+SHARED_DRACO.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
 
 // Paste your Ready Player Me GLB URL here to swap player model.
 // Example: 'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb'
@@ -286,6 +291,7 @@ export class Player {
 
   async _tryLoadGLB() {
     const loader = new GLTFLoader()
+    loader.setDRACOLoader(SHARED_DRACO)
 
     // If custom avatar URL provided, load it + retarget animations from Soldier
     if (PLAYER_AVATAR_URL) {
