@@ -881,21 +881,40 @@ export class Player {
   }
 
   _stabMelee(enemies, onHitEnemy) {
-    const STAB_RANGE = 2.0
+    // Find nearest enemy in 3m range (any direction — auto-face + lunge)
+    const STAB_RANGE = 3.0
     let target = null, bestDist = STAB_RANGE
     for (const e of enemies) {
       if (!e.alive) continue
       const dx = e.position.x - this.position.x
       const dz = e.position.z - this.position.z
       const d = Math.hypot(dx, dz)
-      if (d > bestDist) continue
-      const dot = (dx * this.aim.x + dz * this.aim.z) / (d || 1)
-      if (dot < 0.3) continue
-      bestDist = d
-      target = e
+      if (d < bestDist) { bestDist = d; target = e }
     }
-    if (target) onHitEnemy(target, 80, enemies)
-    // Trigger procedural stab animation
+    if (target) {
+      // Face target + lunge to stab distance (0.9m away)
+      const dx = target.position.x - this.position.x
+      const dz = target.position.z - this.position.z
+      const d = Math.hypot(dx, dz) || 1
+      const nx = dx / d, nz = dz / d
+      // Snap player to stab position (0.9m from target)
+      const lungeX = target.position.x - nx * 0.9
+      const lungeZ = target.position.z - nz * 0.9
+      this.position.x = lungeX
+      this.position.z = lungeZ
+      if (this.physicsBody) {
+        this.physicsBody.setNextKinematicTranslation({ x: lungeX, y: this.position.y + 0.9, z: lungeZ })
+      }
+      // Face target
+      this.aim.set(nx, 0, nz)
+      this.group.rotation.y = Math.atan2(nx, nz) + Math.PI
+      // Damage
+      onHitEnemy(target, 80, enemies)
+      this._stabHit = true
+    } else {
+      this._stabHit = false
+    }
+    // Trigger stab animation
     this._stabTime = 0.35
     const w = this.weapons?.pencil
     if (w) w.userData.stabTime = 0.35
