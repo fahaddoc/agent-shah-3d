@@ -43,8 +43,7 @@ export class Enemy {
 
     this._buildMesh()
     scene.add(this.group)
-    // GLB disabled — procedural low-poly gangster used
-    // this._tryLoadGLB()
+    this._tryLoadGLB()
   }
 
   _tryLoadGLB() {

@@ -47,8 +47,7 @@ export class Player {
     this.group = new THREE.Group()
     this._buildWick()
     scene.add(this.group)
-    // GLB disabled — procedural low-poly Wick used instead
-    // this._tryLoadGLB()
+    this._tryLoadGLB()
 
     this.bulletGeo = new THREE.SphereGeometry(0.08, 8, 8)
     this.bulletMat = new THREE.MeshBasicMaterial({ color: 0xffd44d })
