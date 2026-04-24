@@ -504,28 +504,26 @@ export class Player {
   }
 
   _buildHandPistol() {
-    // Pistol built as child of hand bone. Mixamo Joe is FBX→GLB with inherited scale ≈ 0.01 from root.
-    // Geometry in meters — final visible size = geo * model.scale(1.2) * bone inherited scale (varies).
-    // Use generous values + bright gun so visibility certain while tuning.
+    // Joe GLB in meters — pistol ~17cm long, fits hand
     const g = new THREE.Group()
     const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.9, roughness: 0.25 })
     const slideMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.95, roughness: 0.2 })
-    // Big values — Mixamo hands use ~0.01 inherited scale after export
-    const body = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 30), gunMat)
-    body.position.set(0, 4, -20)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.06, 0.17), gunMat)
+    body.position.set(0, 0.01, -0.08)
     g.add(body)
-    const slide = new THREE.Mesh(new THREE.BoxGeometry(7, 5, 30), slideMat)
-    slide.position.set(0, 9, -20)
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.025, 0.17), slideMat)
+    slide.position.set(0, 0.045, -0.08)
     g.add(slide)
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(6, 16, 8), gunMat)
-    grip.position.set(0, -8, -5)
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.08, 0.04), gunMat)
+    grip.position.set(0, -0.05, 0)
     g.add(grip)
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, 4, -35)
+    muzzle.position.set(0, 0.01, -0.18)
     g.add(muzzle)
     g.userData.muzzle = muzzle
-    // Align barrel along hand forward (Z-)
+    // Align + offset forward out of palm
     g.rotation.set(0, Math.PI / 2, 0)
+    g.position.set(-0.05, -0.02, 0)
     return g
   }
 
