@@ -420,13 +420,13 @@ export class Enemy {
 
   update(delta, playerPos, camera, onHitPlayer, allEnemies = null) {
     this._allEnemies = allEnemies
-    if (this.mixer) this.mixer.update(delta)
-    // Freeze if mid-takedown
+    // Freeze FIRST before mixer/AI — stops walking during takedown
     if (this._frozenForTakedown) {
-      // update hp bar billboard only
+      // Pause all animations — no mixer update
       if (this.hpBar) this.hpBar.lookAt(camera.position)
       return
     }
+    if (this.mixer) this.mixer.update(delta)
 
     if (this.pistolMesh && this.rightHandBone) {
       const pos = new THREE.Vector3()
