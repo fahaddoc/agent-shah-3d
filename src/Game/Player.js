@@ -397,15 +397,18 @@ export class Player {
         // Build mixer + register clips (agent.glb = walk, anim-idle.glb = idle, anim-fire.glb = fire)
         this.mixer = new THREE.AnimationMixer(model)
         this.actions = {}
-        const makeAction = (clip, label) => {
+        const makeAction = (clip, label, loop = true) => {
           if (!clip) return null
-          clip.name = label  // rename so we can distinguish 'mixamo.com' clips
-          return this.mixer.clipAction(clip)
+          clip.name = label
+          const a = this.mixer.clipAction(clip)
+          a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+          a.clampWhenFinished = !loop
+          return a
         }
-        this.actions.walk = makeAction(gltf.animations?.[0], 'walk')
-        this.actions.run  = this.actions.walk  // reuse walk for run (faster playback via timeScale)
-        this.actions.idle = makeAction(idleGltf?.animations?.[0], 'idle') || this.actions.walk
-        this.actions.fire = makeAction(fireGltf?.animations?.[0], 'fire') || this.actions.walk
+        this.actions.walk  = makeAction(gltf.animations?.[0], 'walk', true)
+        this.actions.run   = this.actions.walk
+        this.actions.idle  = makeAction(idleGltf?.animations?.[0], 'idle', true) || this.actions.walk
+        this.actions.fire  = makeAction(fireGltf?.animations?.[0], 'fire', false)
         this.actions.dodge = this.actions.run
 
         this._switchTo('idle')
@@ -611,13 +614,18 @@ export class Player {
         else if (this.actions.run) this._switchTo('run', 0.05)
         setTimeout(() => { this._dodging = false }, 450)
       } else if (!this._dodging) {
-        if (wantFireNow && this.actions.fire) {
-          this._switchTo('fire')
-        } else if (moving) {
-          this._switchTo(speedNow > 5.5 ? 'run' : 'walk')
-          if (this._currentAction) this._currentAction.timeScale = speedNow > 5.5 ? 1.7 : 1.0
+        // Fire = additive/one-shot (does not replace movement anim). Moving anim always runs.
+        const base = moving ? (speedNow > 5.5 ? 'run' : 'walk') : 'idle'
+        this._switchTo(base)
+        if (this._currentAction) this._currentAction.timeScale = (speedNow > 5.5) ? 1.7 : 1.0
+        if (wantFireNow && this.actions.fire && this.fireCooldown > 0.1) {
+          // Play fire once per shot (trigger only when a new shot just fired)
+          if (!this._fireTriggeredThisShot) {
+            this._playOneShot('fire', 0.08)
+            this._fireTriggeredThisShot = true
+          }
         } else {
-          this._switchTo('idle')
+          this._fireTriggeredThisShot = false
         }
       }
     }
