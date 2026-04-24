@@ -341,58 +341,7 @@ export class Player {
         this.group.add(model)
         this.glbModel = model
 
-        // Scale-aware bone overlays: use world-space sizes that attach to bones
-        // Mixamo bones export in cm-scale inside the GLB. We build overlays in world scale
-        // and add them as direct bone children; bone applies its transform.
-        // Compensate: geometry in world-meters, divided by inherited bone scale = larger numbers.
-        // Trial values below produce visible Wick overlay at player scale 1.9.
-        const spine = this._findBone(model, ['mixamorig:Spine2', 'mixamorig:Spine1', 'mixamorig:Spine'])
-        if (spine) {
-          const shirt = new THREE.Mesh(
-            new THREE.BoxGeometry(30, 45, 5),
-            new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.7 })
-          )
-          shirt.position.set(0, 10, 12)
-          spine.add(shirt)
-          const tie = new THREE.Mesh(
-            new THREE.BoxGeometry(5, 50, 1.5),
-            new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.35 })
-          )
-          tie.position.set(0, 7, 14)
-          spine.add(tie)
-        }
-
-        const head = this._findBone(model, ['mixamorig:Head', 'Head'])
-        if (head) {
-          const hairMat = new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.92 })
-          // Bone scale ~1.0 in cm = 100x world scale. Use values that give proper head coverage.
-          const hairCap = new THREE.Mesh(
-            new THREE.SphereGeometry(11, 22, 22, 0, Math.PI * 2, 0, Math.PI * 0.55),
-            hairMat
-          )
-          hairCap.position.set(0, 6, 2)
-          head.add(hairCap)
-          const hairBack = new THREE.Mesh(new THREE.BoxGeometry(20, 18, 6), hairMat)
-          hairBack.position.set(0, 0, 10)
-          head.add(hairBack)
-          const hairLong = new THREE.Mesh(new THREE.BoxGeometry(16, 16, 4), hairMat)
-          hairLong.position.set(0, -14, 10)
-          head.add(hairLong)
-
-          const beardMat = new THREE.MeshStandardMaterial({ color: 0x120806, roughness: 0.96 })
-          const beardChin = new THREE.Mesh(new THREE.BoxGeometry(15, 6, 6), beardMat)
-          beardChin.position.set(0, -14, -10)
-          head.add(beardChin)
-          const beardSideL = new THREE.Mesh(new THREE.BoxGeometry(4, 12, 5), beardMat)
-          beardSideL.position.set(-10, -8, -8)
-          head.add(beardSideL)
-          const beardSideR = beardSideL.clone()
-          beardSideR.position.set(10, -8, -8)
-          head.add(beardSideR)
-          const stache = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 3), beardMat)
-          stache.position.set(0, -6, -12)
-          head.add(stache)
-        }
+        // Joe GLB already has Suit/Shirt/Tie/Hair/Pants/Shoes meshes — no procedural overlays needed
 
         // Attach pistol to right hand bone
         const rightHand = this._findBone(model, ['mixamorig:RightHand', 'RightHand'])
