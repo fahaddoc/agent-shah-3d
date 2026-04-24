@@ -941,18 +941,28 @@ export class Player {
     if (!t) { this._endTakedown(); return }
     this._takedownT += delta
 
-    // At 1.3s into anim, enemy starts falling (mid-stab moment of animation)
-    if (this._takedownT > 1.3 && !t._fallenInTakedown) {
-      t._fallenInTakedown = true
-      t.group.rotation.x = Math.PI / 2
-      t.group.position.y = 0.2
+    // Kill flag + hide UI at 1.3s (mid-stab moment)
+    if (this._takedownT > 1.3 && !t._killedInTakedown) {
+      t._killedInTakedown = true
       if (t.hpBar) t.hpBar.visible = false
       if (t.visionMesh) t.visionMesh.visible = false
       if (t.alertIcon) t.alertIcon.visible = false
       t.alive = false
     }
-    // After full takedown anim duration (2.5s), end + remove enemy
-    if (this._takedownT > 2.5) {
+
+    // Smooth fall from 1.3s → 2.3s (1-second fall)
+    if (this._takedownT > 1.3) {
+      const fallP = Math.min(1, (this._takedownT - 1.3) / 1.0)
+      // Ease-in fall (fast at end)
+      const eased = fallP * fallP
+      t.group.rotation.x = eased * (Math.PI / 2)
+      t.group.position.y = -eased * 0.25   // sink down slightly
+      // Slight slump backward first then forward for realism
+      t.group.rotation.z = Math.sin(fallP * Math.PI) * 0.15
+    }
+
+    // End at 2.8s + remove enemy
+    if (this._takedownT > 2.8) {
       if (t.scene && t.group) t.scene.remove(t.group)
       this._endTakedown()
     }
