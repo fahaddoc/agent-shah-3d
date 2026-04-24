@@ -508,32 +508,30 @@ export class Player {
 
   _buildHandPistol() {
     const g = new THREE.Group()
+    // Geometry sizes in meters — bone is in meters post-FBX→GLB
     const body = new THREE.Mesh(
-      new THREE.BoxGeometry(4, 6, 14),
+      new THREE.BoxGeometry(0.04, 0.06, 0.16),
       new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.7, roughness: 0.35 })
     )
-    body.position.set(0, 2, -8)
+    body.position.set(0, 0.02, -0.1)
     g.add(body)
     const slide = new THREE.Mesh(
-      new THREE.BoxGeometry(3.5, 2.5, 14),
+      new THREE.BoxGeometry(0.035, 0.025, 0.16),
       new THREE.MeshStandardMaterial({ color: 0x6a6a6e, metalness: 0.8, roughness: 0.3 })
     )
-    slide.position.set(0, 4, -8)
+    slide.position.set(0, 0.045, -0.1)
     g.add(slide)
     const grip = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 8, 4),
+      new THREE.BoxGeometry(0.03, 0.08, 0.04),
       new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.6, roughness: 0.4 })
     )
-    grip.position.set(0, -3, -3)
+    grip.position.set(0, -0.04, -0.02)
     g.add(grip)
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, 2, -15)
+    muzzle.position.set(0, 0.02, -0.18)
     g.add(muzzle)
     g.userData.muzzle = muzzle
-    // Mixamo hand bones are very small — pistol needs to be small relative to hand local scale.
-    // Skeleton bones often have very small local units; scale down aggressively.
-    g.scale.setScalar(0.35)
-    g.rotation.y = Math.PI / 2   // align barrel along hand forward
+    g.rotation.y = Math.PI / 2
     return g
   }
 

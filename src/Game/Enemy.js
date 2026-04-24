@@ -116,19 +116,18 @@ export class Enemy {
           cap.position.set(0, 6, 2)
           enemyHead.add(cap)
         }
-        // Replace right-hand pistol (override procedural muzzle)
+        // Enemy hand pistol — meters scale
         if (enemyHand) {
           const pistol = new THREE.Group()
           const body = new THREE.Mesh(
-            new THREE.BoxGeometry(4, 6, 14),
+            new THREE.BoxGeometry(0.04, 0.06, 0.16),
             new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6 })
           )
-          body.position.set(0, 2, -8)
+          body.position.set(0, 0.02, -0.1)
           pistol.add(body)
           const muzzle = new THREE.Object3D()
-          muzzle.position.set(0, 2, -15)
+          muzzle.position.set(0, 0.02, -0.18)
           pistol.add(muzzle)
-          pistol.scale.setScalar(0.35)
           pistol.rotation.y = Math.PI / 2
           enemyHand.add(pistol)
           this.muzzle = muzzle
