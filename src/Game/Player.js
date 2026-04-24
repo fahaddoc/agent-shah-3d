@@ -397,8 +397,15 @@ export class Player {
         // Build mixer + register clips (agent.glb = walk, anim-idle.glb = idle, anim-fire.glb = fire)
         this.mixer = new THREE.AnimationMixer(model)
         this.actions = {}
+        // Strip root-motion: remove Hips position tracks so character anim is "in place"
+        const stripRootMotion = (clip) => {
+          if (!clip) return clip
+          clip.tracks = clip.tracks.filter(t => !/Hips\.position$/i.test(t.name))
+          return clip
+        }
         const makeAction = (clip, label, loop = true) => {
           if (!clip) return null
+          stripRootMotion(clip)
           clip.name = label
           const a = this.mixer.clipAction(clip)
           a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)

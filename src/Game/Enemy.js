@@ -139,7 +139,11 @@ export class Enemy {
           this.mixer = new THREE.AnimationMixer(model)
           this.actions = {}
           const byName = {}
-          for (const clip of gltf.animations) byName[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
+          for (const clip of gltf.animations) {
+            // Strip root-motion Hips position track
+            clip.tracks = clip.tracks.filter(t => !/Hips\.position$/i.test(t.name))
+            byName[clip.name.toLowerCase()] = this.mixer.clipAction(clip)
+          }
           const pick = (...keys) => {
             for (const k of keys) for (const [n, a] of Object.entries(byName)) if (n.includes(k)) return a
             return null
