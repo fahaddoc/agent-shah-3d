@@ -57,8 +57,33 @@ export class Enemy {
         }
         const model = gltf.scene
         model.scale.setScalar(1.1)
+        model.rotation.y = Math.PI  // align to -Z forward
         model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
         this.group.add(model)
+
+        // Attach pistol to right hand bone
+        let rightHand = null
+        model.traverse(o => {
+          if (rightHand || !o.isBone) return
+          const n = o.name.toLowerCase()
+          if (n.includes('righthand') || n === 'hand_r' || n === 'right_hand') rightHand = o
+        })
+        if (rightHand) {
+          const pistol = new THREE.Group()
+          const body = new THREE.Mesh(
+            new THREE.BoxGeometry(4, 6, 14),
+            new THREE.MeshStandardMaterial({ color: 0x222, metalness: 0.6 })
+          )
+          body.position.set(0, 2, -8)
+          pistol.add(body)
+          const muzzle = new THREE.Object3D()
+          muzzle.position.set(0, 2, -15)
+          pistol.add(muzzle)
+          pistol.scale.setScalar(0.35)
+          pistol.rotation.y = Math.PI / 2
+          rightHand.add(pistol)
+          this.muzzle = muzzle
+        }
         if (gltf.animations && gltf.animations.length) {
           this.mixer = new THREE.AnimationMixer(model)
           this.actions = {}

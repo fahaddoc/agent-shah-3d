@@ -250,9 +250,20 @@ export class Player {
         }
         const model = gltf.scene
         model.scale.setScalar(1.1)
+        // Mixamo models face +Z by default — rotate 180° so model forward = world -Z (matches aim/movement convention)
+        model.rotation.y = Math.PI
         model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
         this.group.add(model)
         this.glbModel = model
+
+        // Attach pistol to right hand bone
+        const rightHand = this._findBone(model, ['RightHand', 'mixamorigRightHand', 'right_hand', 'Hand_R'])
+        if (rightHand) {
+          const pistolGroup = this._buildHandPistol()
+          rightHand.add(pistolGroup)
+          // override muzzle to use hand pistol muzzle
+          this.muzzle = pistolGroup.userData.muzzle
+        }
 
         if (gltf.animations && gltf.animations.length) {
           this.mixer = new THREE.AnimationMixer(model)
@@ -287,6 +298,51 @@ export class Player {
       undefined,
       () => { /* no GLB present — keep procedural, silent */ }
     )
+  }
+
+  _findBone(root, nameList) {
+    let found = null
+    root.traverse(o => {
+      if (found || !o.isBone) return
+      for (const n of nameList) {
+        if (o.name === n || o.name.toLowerCase().includes(n.toLowerCase())) {
+          found = o
+          return
+        }
+      }
+    })
+    return found
+  }
+
+  _buildHandPistol() {
+    const g = new THREE.Group()
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(4, 6, 14),
+      new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.7, roughness: 0.35 })
+    )
+    body.position.set(0, 2, -8)
+    g.add(body)
+    const slide = new THREE.Mesh(
+      new THREE.BoxGeometry(3.5, 2.5, 14),
+      new THREE.MeshStandardMaterial({ color: 0x6a6a6e, metalness: 0.8, roughness: 0.3 })
+    )
+    slide.position.set(0, 4, -8)
+    g.add(slide)
+    const grip = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 8, 4),
+      new THREE.MeshStandardMaterial({ color: 0x1a1a1e, metalness: 0.6, roughness: 0.4 })
+    )
+    grip.position.set(0, -3, -3)
+    g.add(grip)
+    const muzzle = new THREE.Object3D()
+    muzzle.position.set(0, 2, -15)
+    g.add(muzzle)
+    g.userData.muzzle = muzzle
+    // Mixamo hand bones are very small — pistol needs to be small relative to hand local scale.
+    // Skeleton bones often have very small local units; scale down aggressively.
+    g.scale.setScalar(0.35)
+    g.rotation.y = Math.PI / 2   // align barrel along hand forward
+    return g
   }
 
   _switchTo(name, fadeSec = 0.2) {
