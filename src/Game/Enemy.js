@@ -73,7 +73,20 @@ export class Enemy {
       if (!o.isMesh) return
       o.castShadow = true
       o.receiveShadow = true
-      // Keep Josh's original textures (dark jacket + jeans)
+      // Tint Josh to red/crimson (enemy gangster look — distinct from Joe's black suit)
+      if (o.material) {
+        const mat = o.material.clone()
+        const lname = (o.name || '').toLowerCase()
+        if (lname.includes('body') || lname.includes('skin') || lname.includes('face') ||
+            lname.includes('eye') || lname.includes('hair')) {
+          // Preserve skin/face — don't tint
+        } else {
+          // Clothing / jacket / pants — tint red
+          if (mat.color) mat.color.lerp(new THREE.Color(0xaa1122), 0.7)
+          if (mat.emissive) mat.emissive.setHex(0x220000)
+        }
+        o.material = mat
+      }
     })
 
     // Attach pistol to right hand
