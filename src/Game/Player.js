@@ -620,8 +620,7 @@ export class Player {
         if (this.actions.dodge) this._playOneShot('dodge')
         else if (this.actions.run) this._switchTo('run', 0.05)
         setTimeout(() => { this._dodging = false }, 450)
-      } else if (!this._dodging) {
-        // Only idle/walk/run — no fire anim interruption (bullets still fire via shoot())
+      } else if (!this._dodging && !this._firing) {
         const base = moving ? (speedNow > 5.5 ? 'run' : 'walk') : 'idle'
         this._switchTo(base)
         if (this._currentAction) this._currentAction.timeScale = (speedNow > 5.5) ? 1.7 : 1.0
@@ -733,6 +732,13 @@ export class Player {
     if (this.armRig) {
       this.armRig.position.z = 0.08
       setTimeout(() => { if (this.armRig) this.armRig.position.z = 0 }, 60)
+    }
+    // Play fire animation (200ms burst then back to walk/idle)
+    if (this.actions?.fire && !this._firing) {
+      this._firing = true
+      this._playOneShot('fire', 0.06)
+      clearTimeout(this._fireTimeout)
+      this._fireTimeout = setTimeout(() => { this._firing = false }, 250)
     }
   }
 
