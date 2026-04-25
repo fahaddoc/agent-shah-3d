@@ -949,24 +949,29 @@ export class Player {
       t.alive = false
     }
 
-    // Cinematic 2-phase fall: knees buckle → forward face-plant
-    // Phase 1 (1.3s–1.8s): knees buckle (slight forward tilt + sink down)
-    // Phase 2 (1.8s–2.6s): full forward fall onto floor
-    if (this._takedownT > 1.3 && this._takedownT <= 1.8) {
-      const p = (this._takedownT - 1.3) / 0.5            // 0 → 1
-      const eased = p * p                                  // ease-in
-      t.group.rotation.x = eased * 0.5                    // bend forward ~28°
-      t.group.position.y = -eased * 0.45                  // sink (knees buckling)
+    // Cinematic 3-phase fall:
+    // Phase 1 (1.3s–1.7s): drop straight down to KNEES — y sinks ~0.7m, no rotation
+    // Phase 2 (1.7s–1.9s): pause on knees (slight forward sway)
+    // Phase 3 (1.9s–2.7s): rotate forward 90° face-plant + adjust y to lying-flat (0.2)
+    if (this._takedownT > 1.3 && this._takedownT <= 1.7) {
+      const p = (this._takedownT - 1.3) / 0.4
+      const eased = p * p
+      t.group.position.y = -eased * 0.7
+      t.group.rotation.x = 0
       t.group.rotation.z = 0
-    } else if (this._takedownT > 1.8) {
-      const p = Math.min(1, (this._takedownT - 1.8) / 0.8)
-      const eased = p * (2 - p)                            // ease-out
-      // Continue rotation from 0.5 → PI/2 (forward face-plant)
-      t.group.rotation.x = 0.5 + eased * (Math.PI / 2 - 0.5)
-      // Y from -0.45 (kneeling) → 0.2 (lying flat on floor)
-      t.group.position.y = -0.45 + eased * 0.65
-      // Slight side-slump as body hits floor
-      t.group.rotation.z = Math.sin(p * Math.PI) * 0.12
+    } else if (this._takedownT > 1.7 && this._takedownT <= 1.9) {
+      const p = (this._takedownT - 1.7) / 0.2
+      // Hold kneeling height, slight forward lean preview
+      t.group.position.y = -0.7
+      t.group.rotation.x = p * 0.2
+    } else if (this._takedownT > 1.9) {
+      const p = Math.min(1, (this._takedownT - 1.9) / 0.8)
+      const eased = p * (2 - p)
+      // Rotate from 0.2 → PI/2 (full forward fall)
+      t.group.rotation.x = 0.2 + eased * (Math.PI / 2 - 0.2)
+      // Lift y from -0.7 (kneeling) → 0.2 (lying horizontally)
+      t.group.position.y = -0.7 + eased * 0.9
+      t.group.rotation.z = Math.sin(p * Math.PI) * 0.1
     }
 
     // End at 2.8s — enemy body stays on floor (no removal)
