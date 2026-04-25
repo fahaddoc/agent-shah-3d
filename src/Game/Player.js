@@ -950,14 +950,24 @@ export class Player {
       t.alive = false
     }
 
-    // Smooth fall from 1.3s → 2.3s (1-second fall), body rests ON floor
-    if (this._takedownT > 1.3) {
-      const fallP = Math.min(1, (this._takedownT - 1.3) / 1.0)
-      const eased = fallP * fallP
-      t.group.rotation.x = eased * (Math.PI / 2)
-      // Body thickness ~0.4m — when horizontal, needs y=0.2 to rest on ground
-      t.group.position.y = eased * 0.2
-      t.group.rotation.z = Math.sin(fallP * Math.PI) * 0.15
+    // Cinematic 2-phase fall: knees buckle → forward face-plant
+    // Phase 1 (1.3s–1.8s): knees buckle (slight forward tilt + sink down)
+    // Phase 2 (1.8s–2.6s): full forward fall onto floor
+    if (this._takedownT > 1.3 && this._takedownT <= 1.8) {
+      const p = (this._takedownT - 1.3) / 0.5            // 0 → 1
+      const eased = p * p                                  // ease-in
+      t.group.rotation.x = eased * 0.5                    // bend forward ~28°
+      t.group.position.y = -eased * 0.45                  // sink (knees buckling)
+      t.group.rotation.z = 0
+    } else if (this._takedownT > 1.8) {
+      const p = Math.min(1, (this._takedownT - 1.8) / 0.8)
+      const eased = p * (2 - p)                            // ease-out
+      // Continue rotation from 0.5 → PI/2 (forward face-plant)
+      t.group.rotation.x = 0.5 + eased * (Math.PI / 2 - 0.5)
+      // Y from -0.45 (kneeling) → 0.2 (lying flat on floor)
+      t.group.position.y = -0.45 + eased * 0.65
+      // Slight side-slump as body hits floor
+      t.group.rotation.z = Math.sin(p * Math.PI) * 0.12
     }
 
     // End at 2.8s — enemy body stays on floor (no removal)
