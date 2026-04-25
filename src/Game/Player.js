@@ -910,7 +910,28 @@ export class Player {
     }
   }
 
+  _captureEnemyLegBones(t) {
+    if (t._legBonesCaptured) return
+    t._legBonesCaptured = true
+    const find = (names) => {
+      let f = null
+      t.group.traverse(o => { if (!f) for (const n of names) if (o.name === n) { f = o; return } })
+      return f
+    }
+    t._upLegL = find(['mixamorig:LeftUpLeg'])
+    t._upLegR = find(['mixamorig:RightUpLeg'])
+    t._legL = find(['mixamorig:LeftLeg'])
+    t._legR = find(['mixamorig:RightLeg'])
+    t._spine = find(['mixamorig:Spine', 'mixamorig:Spine1', 'mixamorig:Spine2'])
+    t._upLegL_rest = t._upLegL?.quaternion.clone()
+    t._upLegR_rest = t._upLegR?.quaternion.clone()
+    t._legL_rest   = t._legL?.quaternion.clone()
+    t._legR_rest   = t._legR?.quaternion.clone()
+    t._spine_rest  = t._spine?.quaternion.clone()
+  }
+
   _startTakedown(target, enemies, onHitEnemy) {
+    this._captureEnemyLegBones(target)
     this._takedownActive = true
     this._takedownTarget = target
     this._takedownAll = enemies
@@ -949,28 +970,53 @@ export class Player {
       t.alive = false
     }
 
-    // Cinematic 3-phase fall:
-    // Phase 1 (1.3s–1.7s): drop straight down to KNEES — y sinks ~0.7m, no rotation
-    // Phase 2 (1.7s–1.9s): pause on knees (slight forward sway)
-    // Phase 3 (1.9s–2.7s): rotate forward 90° face-plant + adjust y to lying-flat (0.2)
+    // Cinematic 3-phase fall with KNEE BENDING:
+    const bendKnees = (kneeAmt, hipAmt, spineAmt) => {
+      const ex = new THREE.Euler
+      const q = new THREE.Quaternion
+      // Knees bend BACKWARD (shin goes back behind thigh) — positive X rotation on shin bone
+      if (t._legL && t._legL_rest) {
+        ex.set(kneeAmt, 0, 0); q.setFromEuler(ex)
+        t._legL.quaternion.multiplyQuaternions(t._legL_rest, q)
+      }
+      if (t._legR && t._legR_rest) {
+        ex.set(kneeAmt, 0, 0); q.setFromEuler(ex)
+        t._legR.quaternion.multiplyQuaternions(t._legR_rest, q)
+      }
+      // Hips rotate forward (UpLeg back to compensate)
+      if (t._upLegL && t._upLegL_rest) {
+        ex.set(-hipAmt, 0, 0); q.setFromEuler(ex)
+        t._upLegL.quaternion.multiplyQuaternions(t._upLegL_rest, q)
+      }
+      if (t._upLegR && t._upLegR_rest) {
+        ex.set(-hipAmt, 0, 0); q.setFromEuler(ex)
+        t._upLegR.quaternion.multiplyQuaternions(t._upLegR_rest, q)
+      }
+      if (t._spine && t._spine_rest) {
+        ex.set(spineAmt, 0, 0); q.setFromEuler(ex)
+        t._spine.quaternion.multiplyQuaternions(t._spine_rest, q)
+      }
+    }
+
     if (this._takedownT > 1.3 && this._takedownT <= 1.7) {
+      // KNEES BUCKLE — bones bend, character sinks to kneeling pose
       const p = (this._takedownT - 1.3) / 0.4
       const eased = p * p
-      t.group.position.y = -eased * 0.7
+      bendKnees(eased * 1.8, eased * 1.0, eased * 0.3)  // shin bend 100°, hip 57°, spine slight forward
+      t.group.position.y = -eased * 0.4   // lower body slightly as legs fold
       t.group.rotation.x = 0
-      t.group.rotation.z = 0
-    } else if (this._takedownT > 1.7 && this._takedownT <= 1.9) {
-      const p = (this._takedownT - 1.7) / 0.2
-      // Hold kneeling height, slight forward lean preview
-      t.group.position.y = -0.7
-      t.group.rotation.x = p * 0.2
-    } else if (this._takedownT > 1.9) {
-      const p = Math.min(1, (this._takedownT - 1.9) / 0.8)
+    } else if (this._takedownT > 1.7 && this._takedownT <= 2.0) {
+      // Hold kneeling pose
+      bendKnees(1.8, 1.0, 0.3)
+      t.group.position.y = -0.4
+      t.group.rotation.x = (this._takedownT - 1.7) / 0.3 * 0.25
+    } else if (this._takedownT > 2.0) {
+      // Forward face-plant
+      const p = Math.min(1, (this._takedownT - 2.0) / 0.8)
       const eased = p * (2 - p)
-      // Rotate from 0.2 → PI/2 (full forward fall)
-      t.group.rotation.x = 0.2 + eased * (Math.PI / 2 - 0.2)
-      // Lift y from -0.7 (kneeling) → 0.2 (lying horizontally)
-      t.group.position.y = -0.7 + eased * 0.9
+      bendKnees(1.8, 1.0, 0.3 + eased * 0.6)
+      t.group.rotation.x = 0.25 + eased * (Math.PI / 2 - 0.25)
+      t.group.position.y = -0.4 + eased * 0.6
       t.group.rotation.z = Math.sin(p * Math.PI) * 0.1
     }
 
