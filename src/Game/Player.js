@@ -890,9 +890,8 @@ export class Player {
   }
 
   _stabMelee(enemies, onHitEnemy) {
-    if (this._takedownActive) return  // already executing
-    // Find nearest alive enemy in 3m range
-    const STAB_RANGE = 3.0
+    if (this._takedownActive) return
+    const STAB_RANGE = 5.0   // generous range to ensure trigger
     let target = null, bestDist = STAB_RANGE
     for (const e of enemies) {
       if (!e.alive) continue
@@ -901,10 +900,10 @@ export class Player {
       const d = Math.hypot(dx, dz)
       if (d < bestDist) { bestDist = d; target = e }
     }
+    console.log('Stab: target =', target ? `enemy at ${bestDist.toFixed(2)}m` : 'NONE (air stab)', 'enemies alive:', enemies.filter(e => e.alive).length)
     if (target) {
       this._startTakedown(target, enemies, onHitEnemy)
     } else {
-      // Air stab — just animation, no kill
       this._stabTime = 0.35
       const w = this.weapons?.pencil
       if (w) w.userData.stabTime = 0.35
