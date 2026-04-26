@@ -166,6 +166,84 @@ export class World {
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
   }
 
+  // Cheap XZ point-vs-wall check for bullet collisions (AABB inclusion)
+  isInsideWall(x, z, pad = 0) {
+    for (const w of this._walls) {
+      const cx = w.mesh.position.x, cz = w.mesh.position.z
+      if (Math.abs(x - cx) < w.w / 2 + pad && Math.abs(z - cz) < w.d / 2 + pad) {
+        return true
+      }
+    }
+    return false
+  }
+
+  // Spawn spark burst + flash at wall impact point
+  spawnWallImpact(x, y, z, hitDir = null) {
+    if (!this._impacts) this._impacts = []
+    // Bright additive flash — quick pop
+    const flash = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 8, 6),
+      new THREE.MeshBasicMaterial({
+        color: 0xffe8a0,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        opacity: 1.0
+      })
+    )
+    flash.position.set(x, y, z)
+    this.scene.add(flash)
+    this._impacts.push({ mesh: flash, life: 0.12, maxLife: 0.12, isFlash: true })
+    // Spark particles — small bright spheres scattering away from wall
+    const sparkMat = new THREE.MeshBasicMaterial({
+      color: 0xffc060,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    })
+    const sparkGeo = new THREE.SphereGeometry(0.04, 5, 4)
+    // Reflect direction (sparks bounce backward from incoming bullet dir)
+    const bx = hitDir ? -hitDir.x : 0
+    const bz = hitDir ? -hitDir.z : 0
+    const count = 7
+    for (let i = 0; i < count; i++) {
+      const m = new THREE.Mesh(sparkGeo, sparkMat.clone())
+      m.position.set(x, y, z)
+      // Velocity: reflected dir bias + spread + slight upward burst
+      const spread = 3.5
+      const vx = bx * 4 + (Math.random() - 0.5) * spread
+      const vy = 1.5 + Math.random() * 3.5
+      const vz = bz * 4 + (Math.random() - 0.5) * spread
+      this.scene.add(m)
+      this._impacts.push({ mesh: m, life: 0.35 + Math.random() * 0.15, maxLife: 0.5, vx, vy, vz })
+    }
+  }
+
+  updateImpacts(delta) {
+    if (!this._impacts) return
+    for (let i = this._impacts.length - 1; i >= 0; i--) {
+      const p = this._impacts[i]
+      p.life -= delta
+      if (p.isFlash) {
+        // Flash: fade fast, slight expand
+        p.mesh.scale.setScalar(1 + (1 - p.life / p.maxLife) * 1.2)
+        p.mesh.material.opacity = Math.max(0, p.life / p.maxLife)
+      } else {
+        // Sparks: ballistic motion + gravity + fade
+        p.mesh.position.x += p.vx * delta
+        p.mesh.position.y += p.vy * delta
+        p.mesh.position.z += p.vz * delta
+        p.vy -= 9.8 * delta
+        p.mesh.material.opacity = Math.max(0, p.life / p.maxLife)
+      }
+      if (p.life <= 0) {
+        this.scene.remove(p.mesh)
+        if (p.mesh.material?.dispose) p.mesh.material.dispose()
+        this._impacts.splice(i, 1)
+      }
+    }
+  }
+
   registerColliders(physics) {
     // Floor collider — wide flat slab below ground level so capsule rests on top
     const floorProxy = { position: { x: 0, y: -0.5, z: 0 }, uuid: 'floor' }

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 
 // Shared DRACO decoder (needed for Mixamo-compressed GLBs)
@@ -55,8 +56,15 @@ export class Player {
     this._buildStub()
     this._tryLoadGLB()
 
-    this.bulletGeo = new THREE.SphereGeometry(0.08, 8, 8)
-    this.bulletMat = new THREE.MeshBasicMaterial({ color: 0xffd44d })
+    // Tracer-style bullet — elongated cylinder, bright additive blend
+    this.bulletGeo = new THREE.CylinderGeometry(0.03, 0.012, 0.5, 6)
+    this.bulletMat = new THREE.MeshBasicMaterial({
+      color: 0xfff0a0,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    })
   }
 
   _buildStub() {
@@ -64,12 +72,35 @@ export class Player {
     this.muzzle = new THREE.Object3D()
     this.muzzle.position.set(0.3, 1.4, -0.5)
     this.group.add(this.muzzle)
-    this.flash = new THREE.Mesh(
-      new THREE.SphereGeometry(0.14, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xffd44d, transparent: true, opacity: 0 })
+    // Layered flash: bright additive sphere + small core for hot-spark feel
+    const flashGroup = new THREE.Group()
+    const flashOuter = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 12, 8),
+      new THREE.MeshBasicMaterial({
+        color: 0xffe680,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
     )
-    this.flash.position.copy(this.muzzle.position)
-    this.group.add(this.flash)
+    const flashCore = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 8, 6),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+    )
+    flashGroup.add(flashOuter)
+    flashGroup.add(flashCore)
+    flashGroup.position.copy(this.muzzle.position)
+    this.group.add(flashGroup)
+    this.flash = flashGroup
+    this.flashOuter = flashOuter
+    this.flashCore = flashCore
     // Legs/shoes/head as no-op stubs so update() doesn't crash if anims don't fire
     const noop = new THREE.Object3D()
     this.legL = noop; this.legR = noop; this.shoeL = noop; this.shoeR = noop; this.head = noop
@@ -334,6 +365,8 @@ export class Player {
 
     // Load Joe-walking + Joe-idle + fire anims in parallel
     const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
+    const fbxLoader = new FBXLoader()
+    const loadFBX = (url) => new Promise((res, rej) => fbxLoader.load(url, res, undefined, rej))
     Promise.all([
       loadGLB('/assets/models/agent.glb'),
       loadGLB('/assets/models/anim-idle.glb').catch(() => null),
@@ -341,12 +374,13 @@ export class Player {
       loadGLB('/assets/models/anim-stab.glb').catch(() => null),
       loadGLB('/assets/models/anim-knife-walk.glb').catch(() => null),
       loadGLB('/assets/models/anim-knife-idle.glb').catch(() => null),
-      loadGLB('/assets/models/anim-takedown.glb').catch(() => null)
+      loadGLB('/assets/models/anim-takedown.glb').catch(() => null),
+      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null)   // Mixamo "Stomach Hit" reaction
     ]).then(args => this._handleJoeLoaded(...args))
     return
   }
 
-  _handleJoeLoaded(gltf, idleGltf, fireGltf, stabGltf, knifeWalkGltf, knifeIdleGltf, takedownGltf) {
+  _handleJoeLoaded(gltf, idleGltf, fireGltf, stabGltf, knifeWalkGltf, knifeIdleGltf, takedownGltf, hitFbx) {
     {
         // Hide procedural parts (keep ring on ground)
         for (const child of [...this.group.children]) {
@@ -426,6 +460,25 @@ export class Player {
         this.actions.knifeIdle = makeAction(knifeIdleGltf?.animations?.[0], 'knifeIdle', true) || this.actions.idle
         // Stealth Assassination full-body takedown animation
         this.actions.takedown = makeAction(takedownGltf?.animations?.[0], 'takedown', false)
+
+        // Mixamo "Stomach Hit" — FBX bone-name normalization needed (mixamorig:Hips vs mixamorigHips etc)
+        if (hitFbx?.animations?.[0]) {
+          const targetBones = new Set()
+          model.traverse(o => { if (o.isBone) targetBones.add(o.name) })
+          const hitClip = hitFbx.animations[0]
+          for (const t of hitClip.tracks) {
+            const dotIdx = t.name.lastIndexOf('.')
+            const rawBone = dotIdx >= 0 ? t.name.slice(0, dotIdx) : t.name
+            const propPart = dotIdx >= 0 ? t.name.slice(dotIdx) : ''
+            if (targetBones.has(rawBone)) continue
+            const stripped = rawBone.replace(/^mixamorig\d*[:_]?/, '')
+            const candidates = [`mixamorig:${stripped}`, `mixamorig${stripped}`, stripped]
+            for (const c of candidates) {
+              if (targetBones.has(c)) { t.name = c + propPart; break }
+            }
+          }
+          this.actions.hit = makeAction(hitClip, 'hit', false)
+        }
         // Stab anim disabled — using procedural arm rotation instead (reliable across skeletons)
         // Capture right-arm bone for manual thrust animation
         this.rightArmBone = this._findBone(model, ['mixamorig:RightArm', 'RightArm'])
@@ -767,7 +820,7 @@ export class Player {
         if (this.actions.dodge) this._playOneShot('dodge')
         else if (this.actions.run) this._switchTo('run', 0.05)
         setTimeout(() => { this._dodging = false }, 450)
-      } else if (!this._dodging && !this._firing) {
+      } else if (!this._dodging && !this._firing && !this._hitReacting) {
         const isKnife = this.currentWeapon === 'pencil'
         const base = moving
           ? (isKnife ? 'knifeWalk' : (speedNow > 5.5 ? 'run' : 'walk'))
@@ -795,18 +848,15 @@ export class Player {
       this.head.position.y += (2.05 - this.head.position.y) * 0.2
     }
 
-    // Auto-aim: ALERT enemies at long range, ANY alive enemy at close range
-    const AUTO_AIM_ALERT_RANGE = 12
-    const AUTO_AIM_NEAR_RANGE = 5
+    // Auto-aim: any alive enemy within range — engages while walking past
+    const AUTO_AIM_RANGE = 10
     let target = null
-    let bestDist = Infinity
+    let bestDist = AUTO_AIM_RANGE
     for (const en of enemies) {
       if (!en.alive) continue
       const dx = en.position.x - this.position.x
       const dz = en.position.z - this.position.z
       const d = Math.hypot(dx, dz)
-      const inRange = (en.state === 'ALERT' && d < AUTO_AIM_ALERT_RANGE) || (d < AUTO_AIM_NEAR_RANGE)
-      if (!inRange) continue
       if (d < bestDist) { bestDist = d; target = en }
     }
     this.autoAimTarget = target
@@ -863,14 +913,45 @@ export class Player {
       }
     }
 
-    // Muzzle flash decay
-    this.flash.material.opacity *= 0.55
+    // Muzzle flash decay — both layers fade fast for sharp pop
+    if (this.flashOuter) this.flashOuter.material.opacity *= 0.5
+    if (this.flashCore) this.flashCore.material.opacity *= 0.35
+    // Weapon recoil decay — pulled back along group +Z (character behind), springs forward
+    if (this._recoilT > 0 && this.pistolMesh) {
+      this._recoilT -= delta
+      const t = Math.max(0, this._recoilT)
+      const amt = (t / 0.12) * 0.06
+      this.pistolMesh.position.z += amt
+    }
 
     // Bullets
+    const world = window.__GAME__?.world
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i]
       b.life -= delta
-      b.mesh.position.addScaledVector(b.dir, b.speed * delta)
+      // Substep movement — bullets at 55m/s skip thin walls in one frame.
+      // Sample path every ~25cm so wall AABB always catches the hit.
+      const moveDist = b.speed * delta
+      const steps = Math.max(1, Math.ceil(moveDist / 0.25))
+      const stepLen = moveDist / steps
+      let wallHit = false
+      for (let s = 0; s < steps; s++) {
+        b.mesh.position.x += b.dir.x * stepLen
+        b.mesh.position.z += b.dir.z * stepLen
+        if (world?.isInsideWall && world.isInsideWall(b.mesh.position.x, b.mesh.position.z)) {
+          b.life = 0
+          wallHit = true
+          break
+        }
+      }
+      if (wallHit && world?.spawnWallImpact) {
+        world.spawnWallImpact(b.mesh.position.x, b.mesh.position.y, b.mesh.position.z, b.dir)
+      }
+      if (b.life <= 0) {
+        this.scene.remove(b.mesh)
+        this.bullets.splice(i, 1)
+        continue
+      }
       for (const e of enemies) {
         if (!e.alive) continue
         const dx = b.mesh.position.x - e.position.x
@@ -1040,15 +1121,27 @@ export class Player {
     this.muzzle.getWorldPosition(this.muzzleWorld)
     const mesh = new THREE.Mesh(this.bulletGeo, this.bulletMat)
     mesh.position.copy(this.muzzleWorld)
+    // Orient cylinder (default Y-axis) along flight direction so it looks like a tracer
+    const dir = this.aim.clone().normalize()
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
     this.scene.add(mesh)
-    this.bullets.push({ mesh, dir: this.aim.clone().normalize(), speed: 38, life: 1.4 })
-    // Flash + bullet must originate at the actual gun muzzle, not the stub position.
-    if (this.flash?.material) {
+    this.bullets.push({ mesh, dir, speed: 55, life: 0.9 })
+    // Flash at actual gun muzzle (not stub) — both layers pop
+    if (this.flash) {
       const flashLocal = this.muzzleWorld.clone()
       this.group.worldToLocal(flashLocal)
       this.flash.position.copy(flashLocal)
-      this.flash.material.opacity = 1.0
+      if (this.flashOuter) this.flashOuter.material.opacity = 1.0
+      if (this.flashCore) this.flashCore.material.opacity = 1.0
+      // Random size jitter for variety
+      const s = 0.85 + Math.random() * 0.4
+      this.flash.scale.setScalar(s)
     }
+    // Weapon recoil — gun kicks back along character forward axis (group +Z = back)
+    this._recoilT = 0.12
+    // Camera kick for impact feel
+    const cam = window.__GAME__?.camera
+    if (cam?.shake) cam.shake(0.07)
     if (this.armRig) {
       this.armRig.position.z = 0.08
       setTimeout(() => { if (this.armRig) this.armRig.position.z = 0 }, 60)
@@ -1059,5 +1152,13 @@ export class Player {
 
   takeDamage(n) {
     this.hp = Math.max(0, this.hp - n)
+    // Hit reaction — play Mixamo Stomach Hit clip if alive and not in takedown/dodge
+    if (this.hp > 0 && this.actions?.hit && !this._takedownActive && !this._dodging) {
+      this._hitReacting = true
+      this._playOneShot('hit', 0.05)
+      const dur = (this.actions.hit.getClip().duration || 0.7) * 1000
+      clearTimeout(this._hitTimer)
+      this._hitTimer = setTimeout(() => { this._hitReacting = false }, Math.min(dur, 800))
+    }
   }
 }

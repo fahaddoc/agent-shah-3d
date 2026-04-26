@@ -193,6 +193,7 @@ export class Game {
     }
 
     this.npc.update(delta, elapsed, this.player.position)
+    this.world.updateImpacts(delta)
 
     // Stealth-kill detection
     let stealthTarget = null

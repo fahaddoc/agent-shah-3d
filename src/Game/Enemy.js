@@ -7,8 +7,15 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 const ENEMY_DRACO = new DRACOLoader()
 ENEMY_DRACO.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
 
-const ENEMY_BULLET_GEO = new THREE.SphereGeometry(0.12, 8, 8)
-const ENEMY_BULLET_MAT = new THREE.MeshBasicMaterial({ color: 0xff3355 })
+// Tracer-style enemy bullet — red-orange additive (distinct from player's yellow)
+const ENEMY_BULLET_GEO = new THREE.CylinderGeometry(0.035, 0.014, 0.45, 6)
+const ENEMY_BULLET_MAT = new THREE.MeshBasicMaterial({
+  color: 0xff5520,
+  transparent: true,
+  opacity: 0.95,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false
+})
 
 const STATE = { PATROL: 'PATROL', SUSPICIOUS: 'SUSPICIOUS', ALERT: 'ALERT' }
 
@@ -62,13 +69,14 @@ export class Enemy {
       loadGLB('/assets/models/enemy.glb'),                                  // Josh + Pistol Walk
       loadGLB('/assets/models/enemy-idle.glb').catch(() => null),           // Josh + Pistol Idle
       loadFBX('/assets/models/enemy-death-front.fbx').catch(() => null),    // Mixamo Death From Front
-      loadFBX('/assets/models/enemy-death-back.fbx').catch(() => null)      // Mixamo Death From Back
-    ]).then(([walkGltf, idleGltf, deathFrontFbx, deathBackFbx]) =>
-        this._handleJoshLoaded(walkGltf, idleGltf, deathFrontFbx, deathBackFbx))
+      loadFBX('/assets/models/enemy-death-back.fbx').catch(() => null),     // Mixamo Death From Back
+      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null)           // Mixamo Stomach Hit reaction
+    ]).then(([walkGltf, idleGltf, deathFrontFbx, deathBackFbx, hitFbx]) =>
+        this._handleJoshLoaded(walkGltf, idleGltf, deathFrontFbx, deathBackFbx, hitFbx))
       .catch(() => {})
   }
 
-  _handleJoshLoaded(walkGltf, idleGltf, deathFrontGltf, deathBackGltf) {
+  _handleJoshLoaded(walkGltf, idleGltf, deathFrontGltf, deathBackGltf, hitFbx) {
     const keep = new Set([this.hpBar, this.visionMesh, this.alertIcon])
     for (const child of [...this.group.children]) {
       if (!keep.has(child)) child.visible = false
@@ -139,6 +147,35 @@ export class Enemy {
       this.group.add(pistol)
       this.pistolMesh = pistol
       this.muzzle = muzzle
+
+      // Layered muzzle flash — red-orange (visually distinct from player's yellow)
+      const flashGroup = new THREE.Group()
+      const flashOuter = new THREE.Mesh(
+        new THREE.SphereGeometry(0.24, 12, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0xff7030,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        })
+      )
+      const flashCore = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09, 8, 6),
+        new THREE.MeshBasicMaterial({
+          color: 0xffe0a0,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        })
+      )
+      flashGroup.add(flashOuter)
+      flashGroup.add(flashCore)
+      this.group.add(flashGroup)
+      this.flash = flashGroup
+      this.flashOuter = flashOuter
+      this.flashCore = flashCore
     }
     this.group.add(model)
 
@@ -224,6 +261,8 @@ export class Enemy {
     this.actions.fire = this.actions.walk
     this.actions.deathFront = retargetFbxClip(deathFrontGltf, 'deathFront', false)
     this.actions.deathBack  = retargetFbxClip(deathBackGltf,  'deathBack',  false)
+    // Mixamo Stomach Hit — same FBX retarget path
+    this.actions.hit        = retargetFbxClip(hitFbx,         'hit',        false)
     // Debug log to identify mismatch — paste first lines of track + bones
     if (deathFrontGltf?.animations?.[0]) {
       const tr = deathFrontGltf.animations[0].tracks
@@ -426,6 +465,46 @@ export class Enemy {
     this.group.add(this.hpBar)
   }
 
+  // Per-frame: shrink each cone segment to its first wall hit so cone clips at obstacles
+  _updateVisionCone() {
+    const world = window.__GAME__?.world
+    if (!world?.isInsideWall || !this.visionMesh) return
+    const segments = 24                  // must match _buildConeGeometry
+    const halfAngle = this.visionAngle
+    const maxRange = this.visionRange
+    const cosF = Math.cos(this.facing)
+    const sinF = Math.sin(this.facing)
+    const positions = this.visionMesh.geometry.attributes.position
+    const sampleStep = 0.35
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments
+      const a = -halfAngle + (halfAngle * 2) * t
+      const localX = Math.sin(a)
+      const localZ = -Math.cos(a)
+      // Rotate local dir into world by enemy facing
+      const wx = cosF * localX + sinF * localZ
+      const wz = -sinF * localX + cosF * localZ
+      // Walk outward, stop just before first wall hit
+      let dist = maxRange
+      const samples = Math.max(2, Math.ceil(maxRange / sampleStep))
+      for (let s = 1; s <= samples; s++) {
+        const d = (s / samples) * maxRange
+        const x = this.position.x + wx * d
+        const z = this.position.z + wz * d
+        if (world.isInsideWall(x, z)) {
+          dist = Math.max(0.05, d - (maxRange / samples))
+          break
+        }
+      }
+      // Vertex 0 is apex; arc vertex idx = (i + 1)
+      const idx = (i + 1) * 3
+      positions.array[idx + 0] = localX * dist
+      positions.array[idx + 1] = 0
+      positions.array[idx + 2] = localZ * dist
+    }
+    positions.needsUpdate = true
+  }
+
   _buildConeGeometry(range, halfAngle) {
     // Flat cone (triangle fan) on XZ plane, apex at origin, opens toward -Z
     const segments = 24
@@ -484,7 +563,7 @@ export class Enemy {
     this.iconTex.needsUpdate = true
   }
 
-  // True if player is inside vision cone (uses XZ + facing)
+  // True if player is inside vision cone AND has line-of-sight (no wall in between)
   _seesPlayer(playerPos) {
     const dx = playerPos.x - this.position.x
     const dz = playerPos.z - this.position.z
@@ -495,7 +574,19 @@ export class Enemy {
     const fz = Math.cos(this.facing + Math.PI)
     const dotN = (dx * fx + dz * fz) / (dist || 1)
     const angle = Math.acos(THREE.MathUtils.clamp(dotN, -1, 1))
-    return angle < this.visionAngle
+    if (angle >= this.visionAngle) return false
+    // Line-of-sight — sample segment between enemy and player, fail if any wall blocks
+    const world = window.__GAME__?.world
+    if (world?.isInsideWall) {
+      const steps = Math.max(2, Math.ceil(dist / 0.4))
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps
+        const x = this.position.x + dx * t
+        const z = this.position.z + dz * t
+        if (world.isInsideWall(x, z)) return false
+      }
+    }
+    return true
   }
 
   // True if player is behind (back-stab eligible)
@@ -512,6 +603,9 @@ export class Enemy {
 
   update(delta, playerPos, camera, onHitPlayer, allEnemies = null) {
     this._allEnemies = allEnemies
+    // Muzzle flash decay — runs every frame (even when dead) so stuck flashes dissipate
+    if (this.flashOuter) this.flashOuter.material.opacity *= 0.5
+    if (this.flashCore) this.flashCore.material.opacity *= 0.35
     // Takedown handles its own fall — skip everything
     if (this._frozenForTakedown) {
       return
@@ -548,6 +642,12 @@ export class Enemy {
       this.pistolMesh.position.copy(pos)
       this.pistolMesh.rotation.set(0, Math.PI, 0)
       this.pistolMesh.scale.setScalar(0.33)
+      // Recoil — gun pulled back along character forward (group +Z = back)
+      if (this._recoilT > 0) {
+        this._recoilT -= delta
+        const t = Math.max(0, this._recoilT)
+        this.pistolMesh.position.z += (t / 0.1) * 0.05
+      }
     }
     if (!this.alive) {
       this._updateBullets(delta, playerPos, onHitPlayer)
@@ -599,8 +699,11 @@ export class Enemy {
     this.group.position.copy(this.position)
     this.group.rotation.y = this.facing
 
-    // Anim state based on state machine
-    if (this.actions) {
+    // Clip vision cone visual against walls — vertices shrink to first wall hit per slice
+    this._updateVisionCone()
+
+    // Anim state based on state machine — skipped during hit reaction so clip plays through
+    if (this.actions && !this._hitReacting) {
       if (this.state === 'ALERT') {
         const dx = playerPos.x - this.position.x
         const dz = playerPos.z - this.position.z
@@ -698,25 +801,50 @@ export class Enemy {
     this.muzzle.getWorldPosition(this.muzzleWorld)
     const mesh = new THREE.Mesh(ENEMY_BULLET_GEO, ENEMY_BULLET_MAT)
     mesh.position.copy(this.muzzleWorld)
+    const dir = new THREE.Vector3(nx, 0, nz).normalize()
+    // Orient cylinder along flight direction (tracer feel)
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
     this.scene.add(mesh)
-    this.bullets.push({
-      mesh,
-      dir: new THREE.Vector3(nx, 0, nz),
-      speed: 22,
-      life: 1.6
-    })
+    this.bullets.push({ mesh, dir, speed: 32, life: 1.2 })
+    // Muzzle flash + recoil
+    if (this.flash) {
+      const flashLocal = this.muzzleWorld.clone()
+      this.group.worldToLocal(flashLocal)
+      this.flash.position.copy(flashLocal)
+      if (this.flashOuter) this.flashOuter.material.opacity = 1.0
+      if (this.flashCore) this.flashCore.material.opacity = 1.0
+      this.flash.scale.setScalar(0.85 + Math.random() * 0.4)
+    }
+    this._recoilT = 0.1
   }
 
   _updateBullets(delta, playerPos, onHitPlayer) {
+    const world = window.__GAME__?.world
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i]
       b.life -= delta
-      b.mesh.position.addScaledVector(b.dir, b.speed * delta)
+      // Substep so fast bullets don't skip thin walls between frames
+      const moveDist = b.speed * delta
+      const steps = Math.max(1, Math.ceil(moveDist / 0.25))
+      const stepLen = moveDist / steps
+      let wallHit = false
+      for (let s = 0; s < steps; s++) {
+        b.mesh.position.x += b.dir.x * stepLen
+        b.mesh.position.z += b.dir.z * stepLen
+        if (world?.isInsideWall && world.isInsideWall(b.mesh.position.x, b.mesh.position.z)) {
+          b.life = 0
+          wallHit = true
+          break
+        }
+      }
+      if (wallHit && world?.spawnWallImpact) {
+        world.spawnWallImpact(b.mesh.position.x, b.mesh.position.y, b.mesh.position.z, b.dir)
+      }
 
       // Player hit
       const pdx = b.mesh.position.x - playerPos.x
       const pdz = b.mesh.position.z - playerPos.z
-      if (Math.hypot(pdx, pdz) < 0.7) {
+      if (b.life > 0 && Math.hypot(pdx, pdz) < 0.7) {
         onHitPlayer(this, 8)
         b.life = 0
       }
@@ -761,6 +889,21 @@ export class Enemy {
       this.state = STATE.ALERT
       this.suspicionTimer = 0
       if (allEnemies) this.alertNearby(allEnemies)
+      // Hit reaction — play Stomach Hit clip; blocks state-driven anim swap briefly
+      if (this.actions?.hit && this.mixer) {
+        this._hitReacting = true
+        const action = this.actions.hit
+        action.reset()
+        action.setLoop(THREE.LoopOnce, 1)
+        action.clampWhenFinished = true
+        action.fadeIn(0.05).play()
+        if (this._currentAction && this._currentAction !== action) this._currentAction.fadeOut(0.05)
+        this._currentAction = action
+        this._currentActionName = 'hit'
+        const dur = (action.getClip().duration || 0.7) * 1000
+        clearTimeout(this._hitTimer)
+        this._hitTimer = setTimeout(() => { this._hitReacting = false }, Math.min(dur, 700))
+      }
     }
     if (this.hp <= 0) this.die(hitDir)
   }
@@ -777,6 +920,9 @@ export class Enemy {
     this.hpBar.visible = false
     this.visionMesh.visible = false
     this.alertIcon.visible = false
+    // Snap-hide muzzle flash so it doesn't stick visible on the corpse
+    if (this.flashOuter) this.flashOuter.material.opacity = 0
+    if (this.flashCore) this.flashCore.material.opacity = 0
     // Takedown drives its own bone-level fall — don't double-animate
     if (this._frozenForTakedown) return
 

@@ -16,6 +16,10 @@ export class Camera {
     this.smoothPos = new THREE.Vector3(0, this.height, this.distance)
     this.instance.position.copy(this.smoothPos)
 
+    // Recoil/impact shake
+    this.shakeAmount = 0
+    this.shakeDecay = 9
+
     // Mouse drag to orbit
     this.dragging = false
     this.lastMouseX = 0
@@ -50,6 +54,10 @@ export class Camera {
     return out
   }
 
+  shake(amt) {
+    this.shakeAmount = Math.max(this.shakeAmount, amt)
+  }
+
   follow(targetPos, delta) {
     // Desired camera position: orbit around player
     const dx = Math.sin(this.yaw) * this.distance
@@ -64,6 +72,13 @@ export class Camera {
     this.smoothLook.lerp(this.lookTarget, lookLerp)
 
     this.instance.position.copy(this.smoothPos)
+    // Apply shake jitter
+    if (this.shakeAmount > 0.001) {
+      this.instance.position.x += (Math.random() - 0.5) * this.shakeAmount
+      this.instance.position.y += (Math.random() - 0.5) * this.shakeAmount * 0.5
+      this.instance.position.z += (Math.random() - 0.5) * this.shakeAmount
+      this.shakeAmount *= Math.max(0, 1 - delta * this.shakeDecay)
+    }
     this.instance.lookAt(this.smoothLook)
   }
 
