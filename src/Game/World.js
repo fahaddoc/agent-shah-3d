@@ -177,6 +177,44 @@ export class World {
     return false
   }
 
+  // Red blood-spark burst at enemy/player hit point — bigger, redder than wall impact
+  spawnHitImpact(x, y, z, hitDir = null) {
+    if (!this._impacts) this._impacts = []
+    // Red flash core
+    const flash = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 10, 8),
+      new THREE.MeshBasicMaterial({
+        color: 0xff3020,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        opacity: 1.0
+      })
+    )
+    flash.position.set(x, y, z)
+    this.scene.add(flash)
+    this._impacts.push({ mesh: flash, life: 0.18, maxLife: 0.18, isFlash: true })
+    // Crimson + orange particles
+    const sparkGeo = new THREE.SphereGeometry(0.05, 5, 4)
+    const bx = hitDir ? -hitDir.x : 0
+    const bz = hitDir ? -hitDir.z : 0
+    for (let i = 0; i < 9; i++) {
+      const m = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({
+        color: i % 2 === 0 ? 0xff2020 : 0xff8050,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      }))
+      m.position.set(x, y, z)
+      const spread = 4
+      const vx = bx * 3 + (Math.random() - 0.5) * spread
+      const vy = 1 + Math.random() * 3
+      const vz = bz * 3 + (Math.random() - 0.5) * spread
+      this.scene.add(m)
+      this._impacts.push({ mesh: m, life: 0.4 + Math.random() * 0.2, maxLife: 0.6, vx, vy, vz })
+    }
+  }
+
   // Spawn spark burst + flash at wall impact point
   spawnWallImpact(x, y, z, hitDir = null) {
     if (!this._impacts) this._impacts = []

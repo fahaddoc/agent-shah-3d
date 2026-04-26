@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { loadFbxCached } from './fbxCache.js'
 
 const ENEMY_DRACO = new DRACOLoader()
 ENEMY_DRACO.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
@@ -35,6 +35,7 @@ export class Enemy {
     this.preferredDist = 9
     this.fireRange = 14
     this.fireCooldown = 0.8 + Math.random() * 0.6
+    this.pistolAmmo = 6
     this.suspicionTimer = 0              // builds up before going ALERT
     this.state = STATE.PATROL
 
@@ -56,40 +57,59 @@ export class Enemy {
 
     this._buildMesh()
     scene.add(this.group)
-    this._tryLoadGLB()
+    this.ready = this._tryLoadGLB()
   }
 
   _tryLoadGLB() {
     const loader = new GLTFLoader()
     loader.setDRACOLoader(ENEMY_DRACO)
     const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
-    const fbxLoader = new FBXLoader()
-    const loadFBX = (url) => new Promise((res, rej) => fbxLoader.load(url, res, undefined, rej))
-    Promise.all([
-      loadGLB('/assets/models/enemy.glb'),                                  // Josh + Pistol Walk
-      loadGLB('/assets/models/enemy-idle.glb').catch(() => null),           // Josh + Pistol Idle
+    const loadFBX = (url) => loadFbxCached(url)
+    return Promise.all([
+      loadFBX('/assets/models/enemy-character.fbx').catch(() => null),      // Mixamo Gas Mask soldier — T-pose model
+      loadGLB('/assets/models/enemy.glb'),                                  // Josh + Pistol Walk (anim source)
+      loadGLB('/assets/models/enemy-idle.glb').catch(() => null),           // Josh + Pistol Idle (anim source)
       loadFBX('/assets/models/enemy-death-front.fbx').catch(() => null),    // Mixamo Death From Front
       loadFBX('/assets/models/enemy-death-back.fbx').catch(() => null),     // Mixamo Death From Back
-      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null)           // Mixamo Stomach Hit reaction
-    ]).then(([walkGltf, idleGltf, deathFrontFbx, deathBackFbx, hitFbx]) =>
-        this._handleJoshLoaded(walkGltf, idleGltf, deathFrontFbx, deathBackFbx, hitFbx))
+      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null),          // Mixamo Stomach Hit (ranged hit)
+      loadFBX('/assets/models/enemy-outward-slash.fbx').catch(() => null),  // Mixamo Stable Sword Outward Slash
+      loadFBX('/assets/models/enemy-ready-idle.fbx').catch(() => null),     // Mixamo Ready Idle
+      loadFBX('/assets/models/hit-body.fbx').catch(() => null),             // Mixamo Hit To Body (melee hit)
+      loadFBX('/assets/models/pistol-walk-backward.fbx').catch(() => null), // Mixamo Pistol Walk Backward Arc
+      loadFBX('/assets/models/standard-run.fbx').catch(() => null),         // Mixamo Standard Run — out-of-ammo charge
+      loadFBX('/assets/models/mma-kick.fbx').catch(() => null),             // Mixamo MMA Kick — melee attack
+      loadFBX('/assets/models/punching.fbx').catch(() => null)              // Mixamo Punching — melee attack
+    ]).then(([charFbx, walkGltf, idleGltf, deathFrontFbx, deathBackFbx, hitFbx, slashFbx, readyIdleFbx, hitBodyFbx, walkBackFbx, oooRunFbx, mmaKickFbx, punchingFbx]) =>
+        this._handleJoshLoaded(charFbx, walkGltf, idleGltf, deathFrontFbx, deathBackFbx, hitFbx, slashFbx, readyIdleFbx, hitBodyFbx, walkBackFbx, oooRunFbx, mmaKickFbx, punchingFbx))
       .catch(() => {})
   }
 
-  _handleJoshLoaded(walkGltf, idleGltf, deathFrontGltf, deathBackGltf, hitFbx) {
+  _handleJoshLoaded(charFbx, walkGltf, idleGltf, deathFrontGltf, deathBackGltf, hitFbx, slashFbx, readyIdleFbx, hitBodyFbx, walkBackFbx, oooRunFbx, mmaKickFbx, punchingFbx) {
     const keep = new Set([this.hpBar, this.visionMesh, this.alertIcon])
     for (const child of [...this.group.children]) {
       if (!keep.has(child)) child.visible = false
     }
-    const model = walkGltf.scene
-    model.scale.setScalar(1.2)
-    model.rotation.y = Math.PI  // Josh default front = +Z, rotate to -Z convention
+    // Use Gas Mask FBX as visible model when available; fall back to Josh GLB.
+    // CRITICAL: fbxCache shares same FBX object across all enemies → must clone per-enemy
+    // (Object3D can only have one parent — without cloning, last enemy steals the model).
+    let model
+    if (charFbx) {
+      model = SkeletonUtils.clone(charFbx)
+      // FBXLoader returns Mixamo character in cm — match player height (~1.8m)
+      model.scale.setScalar(0.011)
+      // Mixamo characters face +Z by default → flip to -Z forward convention
+      model.rotation.y = Math.PI
+    } else {
+      model = walkGltf.scene
+      model.scale.setScalar(1.2)
+      model.rotation.y = Math.PI
+    }
+    const tintEnabled = !charFbx   // only tint Josh GLB; Gas Mask FBX keeps its own materials
     model.traverse(o => {
       if (!o.isMesh) return
       o.castShadow = true
       o.receiveShadow = true
-      // Tint Josh to red/crimson (enemy gangster look — distinct from Joe's black suit)
-      if (o.material) {
+      if (tintEnabled && o.material) {
         const mat = o.material.clone()
         const lname = (o.name || '').toLowerCase()
         if (lname.includes('body') || lname.includes('skin') || lname.includes('face') ||
@@ -241,19 +261,46 @@ export class Enemy {
       return a
     }
     // Death clips need Hips.position so the body descends to floor — keepRoot=true
-    const retargetFbxClip = (fbxScene, label, keepRoot = false) => {
-      if (!fbxScene || !fbxScene.animations?.[0]) return null
-      const srcClip = fbxScene.animations[0]
-      try {
-        const retargeted = SkeletonUtils.retargetClip(model, fbxScene, srcClip, { useTargetMatrix: true })
-        if (retargeted && retargeted.tracks.length > 0) {
-          console.log(`[Enemy] retargetClip ${label}: ${retargeted.tracks.length} tracks`)
-          return makeAction(retargeted, label, false, true, keepRoot)
-        }
-      } catch (e) {
-        console.warn(`[Enemy] retargetClip ${label} failed:`, e.message)
+    // Count tracks whose bone name actually exists in the target skeleton
+    const countBound = (clip) => {
+      if (!clip) return 0
+      let n = 0
+      for (const t of clip.tracks) {
+        const dot = t.name.lastIndexOf('.')
+        const bone = dot >= 0 ? t.name.slice(0, dot) : t.name
+        if (targetBones.has(bone)) n++
       }
-      return makeAction(srcClip, label, false, true, keepRoot)
+      return n
+    }
+    const retargetFbxClip = (fbxScene, label, keepRoot = false) => {
+      if (!fbxScene) return null
+      const animArr = fbxScene.animations || []
+      // Some FBX exports stash the real clip in [1] when [0] is empty/static
+      const srcClip = animArr.find(c => c && c.tracks && c.tracks.length > 0)
+      if (!srcClip) {
+        console.warn(`[Enemy] ${label}: FBX has no usable animation clips (${animArr.length})`)
+        return null
+      }
+      console.log(`[Enemy] ${label}: src has ${srcClip.tracks.length} tracks, sample names:`, srcClip.tracks.slice(0, 3).map(t => t.name))
+      // Try normalize path first (preserves quaternion data)
+      const candB = srcClip.clone()
+      normalizeTrackNames(candB)
+      const boundB = countBound(candB)
+      if (boundB >= 10) {
+        console.log(`[Enemy] ${label}: ✓ normalize bound ${boundB} tracks`)
+        return makeAction(candB, label, false, false, keepRoot)
+      }
+      // Fallback: SkeletonUtils.retargetClip
+      let candA = null, boundA = 0
+      try {
+        candA = SkeletonUtils.retargetClip(model, fbxScene, srcClip, { useTargetMatrix: true })
+        boundA = countBound(candA)
+      } catch (e) {
+        console.warn(`[Enemy] retarget ${label} threw:`, e.message)
+      }
+      console.log(`[Enemy] ${label}: normalize ${boundB}, retargetClip ${boundA} → using ${boundA > boundB ? 'retarget' : 'normalize'}`)
+      const winner = boundA > boundB ? candA : candB
+      return makeAction(winner || candB, label, false, false, keepRoot)
     }
     this.actions.walk = makeAction(walkGltf.animations?.[0], 'walk', true)
     this.actions.run  = this.actions.walk
@@ -261,8 +308,33 @@ export class Enemy {
     this.actions.fire = this.actions.walk
     this.actions.deathFront = retargetFbxClip(deathFrontGltf, 'deathFront', false)
     this.actions.deathBack  = retargetFbxClip(deathBackGltf,  'deathBack',  false)
-    // Mixamo Stomach Hit — same FBX retarget path
-    this.actions.hit        = retargetFbxClip(hitFbx,         'hit',        false)
+    // Mixamo Stomach Hit — ranged (bullet) hit reaction
+    this.actions.hit         = retargetFbxClip(hitFbx,        'hit',         false)
+    // Mixamo Hit To Body — melee (punch) hit reaction
+    this.actions.hitMelee    = retargetFbxClip(hitBodyFbx,    'hitMelee',    false)
+    // Out-of-ammo reaction: outward slash (one-shot) → ready idle (loop)
+    this.actions.slash       = retargetFbxClip(slashFbx,      'slash',       false)
+    this.actions.readyIdle   = retargetFbxClip(readyIdleFbx,  'readyIdle',   false)
+    // Backward pistol walk — used when enemy retreats inside preferredDist
+    this.actions.walkBack    = retargetFbxClip(walkBackFbx,   'walkBack',    false)
+    if (this.actions.walkBack) {
+      this.actions.walkBack.setLoop(THREE.LoopRepeat, Infinity)
+      this.actions.walkBack.clampWhenFinished = false
+    }
+    // Out-of-ammo charge run — looping
+    this.actions.oooRun      = retargetFbxClip(oooRunFbx,     'oooRun',      false)
+    if (this.actions.oooRun) {
+      this.actions.oooRun.setLoop(THREE.LoopRepeat, Infinity)
+      this.actions.oooRun.clampWhenFinished = false
+    }
+    // Melee attack clips — randomized between MMA kick and punching combo
+    this.actions.mmaKick     = retargetFbxClip(mmaKickFbx,    'mmaKick',     false)
+    this.actions.punching    = retargetFbxClip(punchingFbx,   'punching',    false)
+    // ready idle should loop — patch action setup
+    if (this.actions.readyIdle) {
+      this.actions.readyIdle.setLoop(THREE.LoopRepeat, Infinity)
+      this.actions.readyIdle.clampWhenFinished = false
+    }
     // Debug log to identify mismatch — paste first lines of track + bones
     if (deathFrontGltf?.animations?.[0]) {
       const tr = deathFrontGltf.animations[0].tracks
@@ -603,6 +675,7 @@ export class Enemy {
 
   update(delta, playerPos, camera, onHitPlayer, allEnemies = null) {
     this._allEnemies = allEnemies
+    this._onHitPlayer = onHitPlayer
     // Muzzle flash decay — runs every frame (even when dead) so stuck flashes dissipate
     if (this.flashOuter) this.flashOuter.material.opacity *= 0.5
     if (this.flashCore) this.flashCore.material.opacity *= 0.35
@@ -689,7 +762,8 @@ export class Enemy {
       this.visionMat.opacity = 0.32
       this._setIcon('?')
     } else { // ALERT
-      this._doCombat(delta, playerPos)
+      if (this._outOfAmmo) this._doMeleeApproach(delta, playerPos)
+      else this._doCombat(delta, playerPos)
       this.suspicionTimer = 0   // keep ALERT alive while seeing
       this.visionMat.color.setHex(0xff3355)
       this.visionMat.opacity = 0.4
@@ -702,9 +776,21 @@ export class Enemy {
     // Clip vision cone visual against walls — vertices shrink to first wall hit per slice
     this._updateVisionCone()
 
-    // Anim state based on state machine — skipped during hit reaction so clip plays through
+    // Anim state — skipped during hit reaction so clip plays through;
+    // out-of-ammo: slash → run-charge while far → ready idle when in melee range
     if (this.actions && !this._hitReacting) {
-      if (this.state === 'ALERT') {
+      if (this._outOfAmmo) {
+        if (!this._slashPlaying) {
+          const odx = playerPos.x - this.position.x
+          const odz = playerPos.z - this.position.z
+          const odist = Math.hypot(odx, odz)
+          if (odist > 1.9 && this.actions.oooRun) {
+            this._switchAnim('oooRun')
+          } else {
+            this._switchAnim('readyIdle')
+          }
+        }
+      } else if (this.state === 'ALERT') {
         const dx = playerPos.x - this.position.x
         const dz = playerPos.z - this.position.z
         const dist = Math.hypot(dx, dz)
@@ -712,6 +798,8 @@ export class Enemy {
           this._switchAnim('fire')
         } else if (dist > this.preferredDist) {
           this._switchAnim('run')
+        } else if (dist < this.preferredDist - 1.5 && this.actions.walkBack) {
+          this._switchAnim('walkBack')
         } else {
           this._switchAnim('idle')
         }
@@ -755,11 +843,20 @@ export class Enemy {
       return
     }
     const nx = dx / d, nz = dz / d
-    this.position.x += nx * this.patrolSpeed * delta
-    this.position.z += nz * this.patrolSpeed * delta
+    this._tryMove(nx * this.patrolSpeed * delta, nz * this.patrolSpeed * delta)
     const desired = Math.atan2(nx, nz) + Math.PI
     this.facing = this._lerpAngle(this.facing, desired, delta * 4)
     this._patrolBaseFacing = desired
+  }
+
+  // Move with wall collision — blocks if next XZ would be inside any wall AABB (with pad)
+  _tryMove(stepX, stepZ) {
+    const world = window.__GAME__?.world
+    const newX = this.position.x + stepX
+    const newZ = this.position.z + stepZ
+    if (world?.isInsideWall && world.isInsideWall(newX, newZ, 0.6)) return
+    this.position.x = newX
+    this.position.z = newZ
   }
 
   _doCombat(delta, playerPos) {
@@ -769,20 +866,115 @@ export class Enemy {
     const nx = dx / dist, nz = dz / dist
 
     if (dist > this.preferredDist) {
-      this.position.x += nx * this.alertSpeed * delta
-      this.position.z += nz * this.alertSpeed * delta
+      this._tryMove(nx * this.alertSpeed * delta, nz * this.alertSpeed * delta)
     } else if (dist < this.preferredDist - 1.5) {
-      this.position.x -= nx * this.alertSpeed * 0.5 * delta
-      this.position.z -= nz * this.alertSpeed * 0.5 * delta
+      this._tryMove(-nx * this.alertSpeed * 0.5 * delta, -nz * this.alertSpeed * 0.5 * delta)
     }
     const desired = Math.atan2(nx, nz) + Math.PI
     this.facing = this._lerpAngle(this.facing, desired, delta * 8)
 
     this.fireCooldown -= delta
-    if (dist <= this.fireRange && this.fireCooldown <= 0) {
+    if (this._hitReacting) return
+    if (dist <= this.fireRange && this.fireCooldown <= 0 && this.pistolAmmo > 0) {
       this._shoot(nx, nz)
+      this.pistolAmmo--
       this.fireCooldown = 1.1
+      // Empty mag — hide pistol mesh + trigger out-of-ammo reaction (slash → ready idle)
+      if (this.pistolAmmo === 0) {
+        if (this.pistolMesh) this.pistolMesh.visible = false
+        this._triggerOutOfAmmo()
+      }
     }
+  }
+
+  _triggerOutOfAmmo() {
+    if (this._outOfAmmo) return
+    this._outOfAmmo = true
+    this.fireCooldown = 0.5   // brief beat before charging player
+    this._playSlash()
+  }
+
+  _playSlash() {
+    const action = this.actions?.slash
+    if (!action || !this.mixer) {
+      this._slashPlaying = false
+      return
+    }
+    this._slashPlaying = true
+    action.reset()
+    action.setLoop(THREE.LoopOnce, 1)
+    action.clampWhenFinished = true
+    action.fadeIn(0.05).play()
+    if (this._currentAction && this._currentAction !== action) this._currentAction.fadeOut(0.05)
+    this._currentAction = action
+    this._currentActionName = 'slash'
+    const dur = (action.getClip().duration || 1.0) * 1000
+    clearTimeout(this._slashTimer)
+    this._slashTimer = setTimeout(() => { this._slashPlaying = false }, dur)
+  }
+
+  // Out-of-ammo melee: charge player, swing slash on contact, deal damage.
+  _doMeleeApproach(delta, playerPos) {
+    const dx = playerPos.x - this.position.x
+    const dz = playerPos.z - this.position.z
+    const dist = Math.hypot(dx, dz) || 0.001
+    const nx = dx / dist, nz = dz / dist
+    const meleeRange = 1.7
+    // Always charge forward — never back away (wall-collision via _tryMove)
+    if (dist > meleeRange) {
+      this._tryMove(nx * this.alertSpeed * delta, nz * this.alertSpeed * delta)
+    }
+    // Face player
+    const desired = Math.atan2(nx, nz) + Math.PI
+    this.facing = this._lerpAngle(this.facing, desired, delta * 8)
+
+    this.fireCooldown -= delta
+    // While reacting to a hit, keep moving but don't attack — player's combo absorbs us
+    if (this._hitReacting) return
+    if (dist <= meleeRange + 0.3 && this.fireCooldown <= 0 && !this._slashPlaying) {
+      // Pick random attack clip — kick or punch
+      const pool = []
+      if (this.actions?.mmaKick) pool.push('mmaKick')
+      if (this.actions?.punching) pool.push('punching')
+      if (pool.length === 0 && this.actions?.slash) pool.push('slash')
+      const clipName = pool[Math.floor(Math.random() * pool.length)] || 'slash'
+      this._playAttack(clipName)
+      this.fireCooldown = 1.4
+      // Damage delivered at MID-CLIP — strike connects at the half-frame
+      const action = this.actions?.[clipName]
+      const dur = (action?.getClip().duration || 1.0) * 1000
+      clearTimeout(this._slashHitTimer)
+      this._slashHitTimer = setTimeout(() => {
+        if (!this.alive || !this._onHitPlayer) return
+        if (this._hitReacting) return
+        const player = window.__GAME__?.player
+        if (!player) return
+        const dx2 = player.position.x - this.position.x
+        const dz2 = player.position.z - this.position.z
+        if (Math.hypot(dx2, dz2) <= meleeRange + 0.5) {
+          this._onHitPlayer(this, 12, 'melee')
+        }
+      }, dur * 0.5)
+    }
+  }
+
+  _playAttack(name) {
+    const action = this.actions?.[name]
+    if (!action || !this.mixer) {
+      this._slashPlaying = false
+      return
+    }
+    this._slashPlaying = true
+    action.reset()
+    action.setLoop(THREE.LoopOnce, 1)
+    action.clampWhenFinished = true
+    action.fadeIn(0.05).play()
+    if (this._currentAction && this._currentAction !== action) this._currentAction.fadeOut(0.05)
+    this._currentAction = action
+    this._currentActionName = name
+    const dur = (action.getClip().duration || 1.0) * 1000
+    clearTimeout(this._slashTimer)
+    this._slashTimer = setTimeout(() => { this._slashPlaying = false }, dur)
   }
 
   _faceTarget(playerPos, lerp) {
@@ -881,28 +1073,40 @@ export class Enemy {
     }
   }
 
-  takeDamage(n, allEnemies, hitDir = null) {
+  takeDamage(n, allEnemies, hitDir = null, type = 'ranged') {
     if (!this.alive) return
     this.hp -= n
+    // Visible hit indicator — red spark burst at chest height
+    const world = window.__GAME__?.world
+    if (world?.spawnHitImpact) {
+      world.spawnHitImpact(this.position.x, this.position.y + 1.4, this.position.z, hitDir)
+    }
     // taking damage = instant alert + alert nearby
     if (this.alive) {
       this.state = STATE.ALERT
       this.suspicionTimer = 0
       if (allEnemies) this.alertNearby(allEnemies)
-      // Hit reaction — play Stomach Hit clip; blocks state-driven anim swap briefly
-      if (this.actions?.hit && this.mixer) {
+      // Cancel any pending slash damage — strike interrupted by this hit
+      clearTimeout(this._slashHitTimer)
+      // Reaction clip — melee uses Hit To Body, ranged uses Stomach Hit
+      const wantMelee = type === 'melee'
+      const clipName = wantMelee
+        ? (this.actions?.hitMelee ? 'hitMelee' : 'hit')
+        : 'hit'
+      console.log('[Enemy] takeDamage type=', type, 'clipName=', clipName, 'hitMelee?=', !!this.actions?.hitMelee)
+      const action = this.actions?.[clipName]
+      if (action && this.mixer) {
         this._hitReacting = true
-        const action = this.actions.hit
         action.reset()
         action.setLoop(THREE.LoopOnce, 1)
         action.clampWhenFinished = true
         action.fadeIn(0.05).play()
         if (this._currentAction && this._currentAction !== action) this._currentAction.fadeOut(0.05)
         this._currentAction = action
-        this._currentActionName = 'hit'
+        this._currentActionName = clipName
         const dur = (action.getClip().duration || 0.7) * 1000
         clearTimeout(this._hitTimer)
-        this._hitTimer = setTimeout(() => { this._hitReacting = false }, Math.min(dur, 700))
+        this._hitTimer = setTimeout(() => { this._hitReacting = false }, dur)
       }
     }
     if (this.hp <= 0) this.die(hitDir)
@@ -920,6 +1124,8 @@ export class Enemy {
     this.hpBar.visible = false
     this.visionMesh.visible = false
     this.alertIcon.visible = false
+    // Cancel any in-flight slash damage timer — dead enemy shouldn't punch
+    clearTimeout(this._slashHitTimer)
     // Snap-hide muzzle flash so it doesn't stick visible on the corpse
     if (this.flashOuter) this.flashOuter.material.opacity = 0
     if (this.flashCore) this.flashCore.material.opacity = 0

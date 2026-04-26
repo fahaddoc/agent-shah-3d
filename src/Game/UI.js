@@ -1,4 +1,5 @@
 import { PROFILE, SKILLS, PROJECTS, EXPERIENCE } from '../data/portfolio.js'
+import { fbxProgress } from './fbxCache.js'
 
 export class UI {
   constructor() {
@@ -25,7 +26,14 @@ export class UI {
   setSector(name) { this.sectorName.textContent = name }
   setWeapon(w) { this.weaponName.textContent = w }
 
+  setLoaderProgress() {
+    if (!this.loaderFill) return
+    const p = Math.max(0.05, Math.min(0.95, fbxProgress()))
+    this.loaderFill.style.width = `${(p * 100).toFixed(0)}%`
+  }
+
   finishLoader() {
+    if (!this.loader) return
     this.loaderFill.style.width = '100%'
     setTimeout(() => this.loader.classList.add('gone'), 400)
     setTimeout(() => this.loader.remove(), 1200)
@@ -37,6 +45,47 @@ export class UI {
   }
 
   closeBriefing() { this.briefing.classList.add('hidden') }
+
+  showGameOver() {
+    if (this._gameOverShown) return
+    this._gameOverShown = true
+    // Render full dossier so failed runs still surface the portfolio content
+    const dossier = ['about', 'experience', 'skills', 'projects', 'contact']
+      .map(s => `<div style="margin-bottom:24px">${this._renderSection(s)}</div>`)
+      .join('')
+    const overlay = document.createElement('div')
+    overlay.id = 'game-over'
+    overlay.innerHTML = `
+      <div style="
+        max-width:780px;width:90%;max-height:88vh;overflow-y:auto;
+        background:rgba(5,12,20,0.96);border:2px solid #ff3355;
+        padding:32px 40px;color:#9bd;
+      ">
+        <h1 style="color:#ff3355;letter-spacing:6px;font-size:42px;margin:0 0 6px;text-align:center">MISSION FAILED</h1>
+        <p style="color:#ffb800;letter-spacing:3px;font-size:13px;text-align:center;margin:0 0 8px">
+          // AGENT DOWN · DOSSIER LEAKED
+        </p>
+        <p style="color:#9bd;text-align:center;margin:0 0 28px;font-size:13px">
+          Final intel recovered from the field — the dossier on Agent Shah Fahad:
+        </p>
+        ${dossier}
+        <div style="text-align:center;margin-top:16px">
+          <button id="continue-btn" style="
+            background:#ff3355;color:#000;border:2px solid #ff3355;
+            padding:14px 36px;font-family:'Share Tech Mono',monospace;
+            font-size:18px;font-weight:bold;letter-spacing:4px;cursor:pointer;
+          ">RETRY</button>
+        </div>
+      </div>
+    `
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(0,5,15,0.92);
+      display:flex;align-items:center;justify-content:center;z-index:9999;
+      font-family:'Share Tech Mono',monospace;
+    `
+    document.body.appendChild(overlay)
+    document.getElementById('continue-btn').addEventListener('click', () => location.reload())
+  }
 
   isBriefingOpen() { return !this.briefing.classList.contains('hidden') }
 

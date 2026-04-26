@@ -3,7 +3,7 @@ import { Ticker } from './Ticker.js'
 import { Inputs } from './Inputs.js'
 import { Renderer } from './Renderer.js'
 import { Camera } from './Camera.js'
-import { World } from './World.js'
+import { WarehouseWorld as World } from './WarehouseWorld.js'
 import { Player } from './Player.js'
 import { Enemy } from './Enemy.js'
 import { NPC } from './NPC.js'
@@ -84,8 +84,21 @@ export class Game {
 
   async start() {
     await this.physics.init()
+    // Wait for async stage loaders (e.g. KenneyWorld) before registering colliders
+    if (this.world.ready) await this.world.ready
     this.world.registerColliders(this.physics)
     this.player.registerPhysics(this.physics)
+    // Live progress while heavy FBX clips load — keep loader visible until ready.
+    // Use Promise.allSettled + per-promise catch so a single bad clip can't block the game.
+    const tick = setInterval(() => this.ui.setLoaderProgress(), 100)
+    const safe = (p, label) => Promise.resolve(p).catch(err => {
+      console.warn(`[Game] ${label} load failed:`, err)
+    })
+    await Promise.allSettled([
+      safe(this.player.ready, 'player'),
+      ...this.enemies.map((e, i) => safe(e.ready, `enemy[${i}]`))
+    ])
+    clearInterval(tick)
     this.ui.finishLoader()
     this.ui.setHint('INFILTRATING SECTOR 01…')
     this.ticker.start()
@@ -183,12 +196,12 @@ export class Game {
       this.raycaster,
       this.world.groundPlane,
       this.enemies,
-      (enemy, dmg, all, hitDir) => enemy.takeDamage(dmg, all, hitDir)
+      (enemy, dmg, all, hitDir, type) => enemy.takeDamage(dmg, all, hitDir, type)
     )
 
     for (const en of this.enemies) {
-      en.update(delta, this.player.position, this.camera.instance, (e, dmg) => {
-        this.player.takeDamage(dmg)
+      en.update(delta, this.player.position, this.camera.instance, (e, dmg, type) => {
+        this.player.takeDamage(dmg, type)
       }, this.enemies)
     }
 
@@ -215,7 +228,7 @@ export class Game {
       }
     } else {
       const aliveLeft = this.enemies.filter(e => e.alive).length
-      this.ui.setHint(`WASD move · MOUSE/SPACE shoot · 1 pistol · 2 MG · 3 pencil · F stealth · TARGETS: ${aliveLeft}`)
+      this.ui.setHint(`WASD · SHOOT mouse/space · 1 pistol · 2 MG · 3 pencil · 4 fight (A/B punch) · F stealth · TARGETS: ${aliveLeft}`)
     }
 
     this.ui.setHealth(this.player.hp, this.player.maxHp)

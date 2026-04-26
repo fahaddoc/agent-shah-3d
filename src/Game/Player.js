@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { loadFbxCached } from './fbxCache.js'
 
 // Shared DRACO decoder (needed for Mixamo-compressed GLBs)
 const SHARED_DRACO = new DRACOLoader()
@@ -50,11 +50,15 @@ export class Player {
     this.physicsCollider = null
     this.physicsCtrl = null
 
+    // Ammo per weapon — pistol 6, MG 30 (one mag), pencil/fight unlimited
+    this.maxAmmo = { pistol: 6, machinegun: 30, pencil: 2 }
+    this.ammo = { pistol: 6, machinegun: 30, pencil: 2 }
+
     this.group = new THREE.Group()
     scene.add(this.group)
     // Minimal procedural stub — just muzzle/flash/ring — hidden once GLB loads
     this._buildStub()
-    this._tryLoadGLB()
+    this.ready = this._tryLoadGLB()
 
     // Tracer-style bullet — elongated cylinder, bright additive blend
     this.bulletGeo = new THREE.CylinderGeometry(0.03, 0.012, 0.5, 6)
@@ -112,6 +116,26 @@ export class Player {
     ring.rotation.x = -Math.PI / 2
     ring.position.y = 0.02
     this.group.add(ring)
+
+    // Stab range indicator — red ring shown only in pencil mode (radius matches STAB_RANGE = 1.8m)
+    this.stabRangeRing = new THREE.Mesh(
+      new THREE.RingGeometry(1.74, 1.8, 64),
+      new THREE.MeshBasicMaterial({ color: 0xff3322, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
+    )
+    this.stabRangeRing.rotation.x = -Math.PI / 2
+    this.stabRangeRing.position.y = 0.03
+    this.stabRangeRing.visible = false
+    this.group.add(this.stabRangeRing)
+
+    // Fight (fist) range indicator — orange ring shown only in fight mode (PUNCH_RANGE = 2.5m)
+    this.fightRangeRing = new THREE.Mesh(
+      new THREE.RingGeometry(2.42, 2.5, 64),
+      new THREE.MeshBasicMaterial({ color: 0xffaa33, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
+    )
+    this.fightRangeRing.rotation.x = -Math.PI / 2
+    this.fightRangeRing.position.y = 0.03
+    this.fightRangeRing.visible = false
+    this.group.add(this.fightRangeRing)
   }
 
   _buildWick() {
@@ -365,9 +389,8 @@ export class Player {
 
     // Load Joe-walking + Joe-idle + fire anims in parallel
     const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
-    const fbxLoader = new FBXLoader()
-    const loadFBX = (url) => new Promise((res, rej) => fbxLoader.load(url, res, undefined, rej))
-    Promise.all([
+    const loadFBX = (url) => loadFbxCached(url)
+    return Promise.all([
       loadGLB('/assets/models/agent.glb'),
       loadGLB('/assets/models/anim-idle.glb').catch(() => null),
       loadGLB('/assets/models/anim-fire.glb').catch(() => null),
@@ -375,12 +398,31 @@ export class Player {
       loadGLB('/assets/models/anim-knife-walk.glb').catch(() => null),
       loadGLB('/assets/models/anim-knife-idle.glb').catch(() => null),
       loadGLB('/assets/models/anim-takedown.glb').catch(() => null),
-      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null)   // Mixamo "Stomach Hit" reaction
+      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null),   // Mixamo "Stomach Hit" — ranged hit
+      loadFBX('/assets/models/hit-body.fbx').catch(() => null),      // Mixamo "Hit To Body" — melee hit
+      loadFBX('/assets/models/fight-idle.fbx').catch(() => null),    // Mixamo "Fight Idle" — out-of-ammo stance
+      loadFBX('/assets/models/fist-a.fbx').catch(() => null),        // Mixamo "Fist Fight A" — A key punch
+      loadFBX('/assets/models/fist-b.fbx').catch(() => null),        // Mixamo "Fist Fight B" — B key punch
+      loadFBX('/assets/models/enemy-outward-slash.fbx').catch(() => null), // Mixamo "Outward Slash" — fallback for stab
+      loadFBX('/assets/models/pistol-walk-backward.fbx').catch(() => null), // Mixamo "Pistol Walk Backward Arc"
+      loadFBX('/assets/models/stabbing.fbx').catch(() => null),            // Mixamo "Stabbing" — pencil stab anim
+      loadFBX('/assets/models/crouched-walking.fbx').catch(() => null),    // Mixamo "Crouched Walking" — pencil walk
+      loadFBX('/assets/models/death.fbx').catch(() => null),               // Mixamo "Death" — player game-over anim
+      loadFBX('/assets/models/mma-side-kick.fbx').catch(() => null),       // Mixamo "MMA Side Kick" — fight mode space
+      loadFBX('/assets/models/punching.fbx').catch(() => null),            // Mixamo "Punching" — fight mode space
+      loadFBX('/assets/models/fight-run.fbx').catch(() => null),           // Mixamo "Running" — fight mode running anim
+      loadFBX('/assets/models/running-backward.fbx').catch(() => null),    // Mixamo "Running Backward" — backpedal while aiming
+      loadFBX('/assets/models/grab-weapon.fbx').catch(() => null),         // Mixamo "Grab Rifle From The Side" — gun draw
+      loadFBX('/assets/models/strafe-left.fbx').catch(() => null),         // Mixamo "Strafe Left"
+      loadFBX('/assets/models/strafe-right.fbx').catch(() => null),        // Mixamo "Walk Right" — strafe right
+      loadFBX('/assets/models/rifle-idle.fbx').catch(() => null),          // Mixamo "Rifle Idle" — MG idle stance
+      loadFBX('/assets/models/shoot-rifle.fbx').catch(() => null),         // Mixamo "Shoot Rifle" — MG firing while moving
+      loadFBX('/assets/models/put-back-weapon.fbx').catch(() => null),     // Mixamo "Put Back Rifle" — gun holster
+      loadFBX('/assets/models/pencil-idle.fbx').catch(() => null)          // Mixamo "Pencil Standing Idle" — pencil idle pose
     ]).then(args => this._handleJoeLoaded(...args))
-    return
   }
 
-  _handleJoeLoaded(gltf, idleGltf, fireGltf, stabGltf, knifeWalkGltf, knifeIdleGltf, takedownGltf, hitFbx) {
+  _handleJoeLoaded(gltf, idleGltf, fireGltf, stabGltf, knifeWalkGltf, knifeIdleGltf, takedownGltf, hitFbx, hitBodyFbx, fightIdleFbx, fistAFbx, fistBFbx, slashFbx, walkBackFbx, stabbingFbx, crouchWalkFbx, deathFbx, kickFbx, punchFbx, fightRunFbx, runBackFbx, grabFbx, strafeLeftFbx, strafeRightFbx, rifleIdleFbx, shootRifleFbx, putBackFbx, pencilIdleFbx) {
     {
         // Hide procedural parts (keep ring on ground)
         for (const child of [...this.group.children]) {
@@ -423,12 +465,13 @@ export class Player {
 
         // Joe GLB already has Suit/Shirt/Tie/Hair/Pants/Shoes meshes — no procedural overlays needed
 
-        // Weapon system — pistol / machinegun / pencil
+        // Weapon system — pistol / machinegun / pencil / fight (bare hands)
         this.rightHandBone = this._findBone(model, ['mixamorig:RightHand', 'RightHand'])
         this.weapons = {
           pistol: this._buildHandPistol(),
           machinegun: this._buildHandMachineGun(),
-          pencil: this._buildHandPencil()
+          pencil: this._buildHandPencil(),
+          fight: new THREE.Group()   // empty — bare hands stance
         }
         for (const w of Object.values(this.weapons)) this.group.add(w)
         this.setWeapon('pistol')
@@ -461,24 +504,122 @@ export class Player {
         // Stealth Assassination full-body takedown animation
         this.actions.takedown = makeAction(takedownGltf?.animations?.[0], 'takedown', false)
 
-        // Mixamo "Stomach Hit" — FBX bone-name normalization needed (mixamorig:Hips vs mixamorigHips etc)
-        if (hitFbx?.animations?.[0]) {
-          const targetBones = new Set()
-          model.traverse(o => { if (o.isBone) targetBones.add(o.name) })
-          const hitClip = hitFbx.animations[0]
-          for (const t of hitClip.tracks) {
+        // Mixamo FBX clips need bone-name normalization (mixamorig:Hips vs mixamorigHips)
+        const targetBones = new Set()
+        model.traverse(o => { if (o.isBone) targetBones.add(o.name) })
+        const targetArr = Array.from(targetBones)
+        const normalizeFbxClip = (origClip) => {
+          if (!origClip) return null
+          // Clone so mutation doesn't pollute shared FBX cache (used by enemies too)
+          const clip = origClip.clone()
+          for (const t of clip.tracks) {
             const dotIdx = t.name.lastIndexOf('.')
             const rawBone = dotIdx >= 0 ? t.name.slice(0, dotIdx) : t.name
             const propPart = dotIdx >= 0 ? t.name.slice(dotIdx) : ''
             if (targetBones.has(rawBone)) continue
-            const stripped = rawBone.replace(/^mixamorig\d*[:_]?/, '')
-            const candidates = [`mixamorig:${stripped}`, `mixamorig${stripped}`, stripped]
+            // Strip pipe namespace prefix (Armature|x)
+            const afterPipe = rawBone.includes('|') ? rawBone.split('|').pop() : rawBone
+            // Strip mixamorig variants — mixamorig:, mixamorig1, mixamorig9, etc.
+            const stripped = afterPipe.replace(/^mixamorig\d*[:_]?/, '')
+            const candidates = [
+              afterPipe,
+              `mixamorig:${stripped}`,
+              `mixamorig${stripped}`,
+              stripped,
+            ]
+            let matched = null
             for (const c of candidates) {
-              if (targetBones.has(c)) { t.name = c + propPart; break }
+              if (targetBones.has(c)) { matched = c; break }
             }
+            // Last resort: suffix match against any target bone
+            if (!matched && stripped.length > 2) {
+              matched = targetArr.find(b => b.endsWith(stripped) || b.endsWith(`:${stripped}`)) || null
+            }
+            if (matched) t.name = matched + propPart
           }
-          this.actions.hit = makeAction(hitClip, 'hit', false)
+          return clip
         }
+        // Robust FBX clip binder — prefer name-normalize (preserves quaternion data
+        // so Mixamo→Mixamo clips don't end up T-posed by retargetClip's matrix transform).
+        // Fall back to SkeletonUtils.retargetClip only if normalize binds too few tracks.
+        const countBound = (clip) => {
+          if (!clip) return 0
+          let n = 0
+          for (const t of clip.tracks) {
+            const dot = t.name.lastIndexOf('.')
+            const bone = dot >= 0 ? t.name.slice(0, dot) : t.name
+            if (targetBones.has(bone)) n++
+          }
+          return n
+        }
+        const bindFbxClip = (fbxScene, label, loop = false) => {
+          if (!fbxScene) return null
+          const srcClip = (fbxScene.animations || []).find(c => c?.tracks?.length > 0)
+          if (!srcClip) {
+            console.warn(`[Player] ${label}: no usable animation in FBX`)
+            return null
+          }
+          // Try normalize path first
+          const candB = normalizeFbxClip(srcClip)
+          const boundB = countBound(candB)
+          if (boundB >= 10) {
+            console.log(`[Player] ${label}: ✓ normalize bound ${boundB}/${srcClip.tracks.length}`)
+            return makeAction(candB, label, loop)
+          }
+          // Fallback: SkeletonUtils.retargetClip
+          let candA = null, boundA = 0
+          try {
+            candA = SkeletonUtils.retargetClip(model, fbxScene, srcClip, { useTargetMatrix: true })
+            boundA = countBound(candA)
+          } catch (e) {
+            console.warn(`[Player] retarget ${label} failed:`, e.message)
+          }
+          console.log(`[Player] ${label}: normalize ${boundB}, retargetClip ${boundA} → using ${boundA > boundB ? 'retarget' : 'normalize'} (sample tracks:`, srcClip.tracks.slice(0, 3).map(t => t.name), ')')
+          // If neither path bound any meaningful tracks, skip — caller falls back to default idle
+          if (Math.max(boundA, boundB) < 5) {
+            console.warn(`[Player] ${label}: SKIPPED — too few tracks bound (would T-pose)`)
+            return null
+          }
+          return makeAction(boundA > boundB ? candA : candB, label, loop)
+        }
+        // "Stomach Hit" — ranged bullet hit
+        this.actions.hit = bindFbxClip(hitFbx, 'hit', false)
+        // "Hit To Body" — melee/slash hit
+        this.actions.hitMelee = bindFbxClip(hitBodyFbx, 'hitMelee', false)
+        // "Fight Idle" — looping stance played when player pistol is out of ammo
+        this.actions.fightIdle = bindFbxClip(fightIdleFbx, 'fightIdle', true)
+        // Fist Fight combos — A and B punch attacks
+        this.actions.fistA = bindFbxClip(fistAFbx, 'fistA', false)
+        this.actions.fistB = bindFbxClip(fistBFbx, 'fistB', false)
+        // Pencil stab — prefer dedicated "Stabbing" clip; fall back to outward slash
+        this.actions.stab = bindFbxClip(stabbingFbx, 'stab', false) || bindFbxClip(slashFbx, 'stab', false)
+        // Backward pistol walk
+        this.actions.walkBack = bindFbxClip(walkBackFbx, 'walkBack', true)
+        // Crouched walking — overrides pencil knifeWalk anim for stealthy approach
+        const crouched = bindFbxClip(crouchWalkFbx, 'knifeWalk', true)
+        if (crouched) this.actions.knifeWalk = crouched
+        // Death — played once on HP 0, then frozen on last frame for game over
+        this.actions.death = bindFbxClip(deathFbx, 'death', false)
+        // Fight mode space attacks — random pick between kick and punch
+        this.actions.kick = bindFbxClip(kickFbx, 'kick', false)
+        this.actions.punch = bindFbxClip(punchFbx, 'punch', false)
+        // Fight mode running anim — used when player moves while in fight mode
+        this.actions.fightRun = bindFbxClip(fightRunFbx, 'fightRun', true)
+        // Running Backward — backpedal anim while aim-locked on enemy
+        this.actions.runBack = bindFbxClip(runBackFbx, 'runBack', true)
+        // Grab Rifle From Side — gun draw anim played when switching to pistol/MG
+        this.actions.grabWeapon = bindFbxClip(grabFbx, 'grabWeapon', false)
+        // Strafe anims — left/right side-step
+        this.actions.strafeLeft = bindFbxClip(strafeLeftFbx, 'strafeLeft', true)
+        this.actions.strafeRight = bindFbxClip(strafeRightFbx, 'strafeRight', true)
+        // Rifle idle — used as idle pose when machinegun weapon is active
+        this.actions.rifleIdle = bindFbxClip(rifleIdleFbx, 'rifleIdle', true)
+        // Shoot Rifle — looping firing anim used while MG fires + player is moving
+        this.actions.shootRifle = bindFbxClip(shootRifleFbx, 'shootRifle', true)
+        // Put Back Rifle — gun-to-holster anim, played before grab when swapping guns
+        this.actions.putBackWeapon = bindFbxClip(putBackFbx, 'putBackWeapon', false)
+        // Pencil Standing Idle — pencil-mode idle stance (overrides knifeIdle for pencil weapon)
+        this.actions.pencilIdle = bindFbxClip(pencilIdleFbx, 'pencilIdle', true)
         // Stab anim disabled — using procedural arm rotation instead (reliable across skeletons)
         // Capture right-arm bone for manual thrust animation
         this.rightArmBone = this._findBone(model, ['mixamorig:RightArm', 'RightArm'])
@@ -638,51 +779,78 @@ export class Player {
     const graphiteMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 })
     const eraserMat = new THREE.MeshStandardMaterial({ color: 0xdd4444, roughness: 0.8 })
     const bandMat = new THREE.MeshStandardMaterial({ color: 0xc08040, metalness: 0.8, roughness: 0.3 })
-    // Held at center — wooden shaft
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8), woodMat)
+    // Pencil shifted forward — tip clearly outside fist, eraser end tucked inside palm
+    // (half visible, half hidden in grip per design).
+    // Lowered y by 0.18 — pencil sits inside fist instead of floating above
+    const dy = -0.18
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4, 8), woodMat)
     shaft.rotation.x = Math.PI / 2
-    shaft.position.set(0, 0.15, 0.25)
+    shaft.position.set(0, dy, 0.2)
     g.add(shaft)
-    // Sharpened tip (cone)
+    // Sharpened tip
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.12, 8), woodMat)
     tip.rotation.x = Math.PI / 2
-    tip.position.set(0, 0.15, 0.66)
+    tip.position.set(0, dy, 0.46)
     g.add(tip)
     // Graphite point
     const point = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.04, 8), graphiteMat)
     point.rotation.x = Math.PI / 2
-    point.position.set(0, 0.15, 0.74)
+    point.position.set(0, dy, 0.54)
     g.add(point)
-    // Metal band at rear
+    // Metal band — at fist edge
     const band = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.06, 8), bandMat)
     band.rotation.x = Math.PI / 2
-    band.position.set(0, 0.15, -0.12)
+    band.position.set(0, dy, -0.04)
     g.add(band)
-    // Eraser
+    // Eraser — tucked inside fist
     const eraser = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.08, 8), eraserMat)
     eraser.rotation.x = Math.PI / 2
-    eraser.position.set(0, 0.15, -0.19)
+    eraser.position.set(0, dy, -0.11)
     g.add(eraser)
-    // Muzzle = tip position (used for stabbing "hit point")
     const muzzle = new THREE.Object3D()
-    muzzle.position.set(0, 0.15, 0.78)
+    muzzle.position.set(0, dy, 0.58)
     g.add(muzzle)
     g.userData.muzzle = muzzle
     return g
   }
 
   setWeapon(name) {
-    // Swap active weapon mesh. Hide all, show selected.
     if (!this.weapons) return
     this.currentWeapon = name
+    const empty = this.ammo[name] === 0
     for (const [key, mesh] of Object.entries(this.weapons)) {
-      mesh.visible = (key === name)
+      mesh.visible = (key === name && !empty)
     }
     this.pistolMesh = this.weapons[name]
     this.muzzle = this.pistolMesh?.userData.muzzle || this.muzzle
-    // Update HUD
-    const label = { pistol: 'PISTOL', machinegun: 'MACHINE GUN', pencil: 'PENCIL' }[name]
-    if (label && window.__GAME__?.ui) window.__GAME__.ui.setWeapon(label)
+    if (this.weapons.pencil && this.weapons.pencil.parent !== this.group) {
+      this.group.add(this.weapons.pencil)
+    }
+    if (this.stabRangeRing) this.stabRangeRing.visible = (name === 'pencil')
+    if (this.fightRangeRing) this.fightRangeRing.visible = (name === 'fight')
+    this._updateWeaponHUD()
+  }
+
+  // Auto-promote weapon when current one runs out: pistol → MG → pencil → fight
+  _autoSwitchOnEmpty() {
+    const order = ['pistol', 'machinegun', 'pencil', 'fight']
+    const idx = order.indexOf(this.currentWeapon)
+    for (let i = idx + 1; i < order.length; i++) {
+      const next = order[i]
+      const a = this.ammo[next]
+      if (a === undefined || a > 0) {
+        this.setWeapon(next)
+        return
+      }
+    }
+  }
+
+  _updateWeaponHUD() {
+    const label = { pistol: 'PISTOL', machinegun: 'MACHINE GUN', pencil: 'PENCIL', fight: 'FIGHT' }[this.currentWeapon]
+    if (!label) return
+    const ammo = this.ammo[this.currentWeapon]
+    const text = ammo === undefined ? label : `${label} · ${ammo}/${this.maxAmmo[this.currentWeapon]}`
+    if (window.__GAME__?.ui) window.__GAME__.ui.setWeapon(text)
   }
 
   _switchTo(name, fadeSec = 0.2) {
@@ -717,6 +885,15 @@ export class Player {
   }
 
   update(delta, inputs, raycaster, groundPlane, enemies, onHitEnemy) {
+    // Dead — let death anim mixer run, drop body to floor as clip plays
+    if (this._dead) {
+      if (this.mixer) this.mixer.update(delta)
+      this._deathT = (this._deathT || 0) + delta
+      const p = Math.min(1, this._deathT / (this._deathDur || 1.5))
+      const eased = p * p
+      this.group.position.y = this.position.y - (this._deathDropTarget || 0.9) * eased
+      return
+    }
     // Camera-relative input
     const m = inputs.axisMove()
     const cam = window.__GAME__.camera
@@ -793,8 +970,8 @@ export class Player {
         w.rotation.set(0, Math.PI, 0)
         w.scale.setScalar(0.33)
       }
-      // Pencil stab thrust animation — bigger forward pulse + slight down angle for stab feel
       const pencil = this.weapons.pencil
+      // Pencil stab thrust animation — bigger forward pulse + slight down angle for stab feel
       if (pencil?.userData.stabTime > 0) {
         pencil.userData.stabTime -= delta
         const t = Math.max(0, pencil.userData.stabTime)
@@ -820,11 +997,45 @@ export class Player {
         if (this.actions.dodge) this._playOneShot('dodge')
         else if (this.actions.run) this._switchTo('run', 0.05)
         setTimeout(() => { this._dodging = false }, 450)
-      } else if (!this._dodging && !this._firing && !this._hitReacting) {
+      } else if (this.currentWeapon === 'machinegun' && wantFireNow && moving && this.actions?.shootRifle && !this._punching && !this._hitReacting) {
+        this._switchTo('shootRifle')
+      } else if (!this._dodging && !this._firing && !this._hitReacting && !this._punching) {
         const isKnife = this.currentWeapon === 'pencil'
+        const isFightMode = this.currentWeapon === 'fight'
+        const isPistolEmpty = this.currentWeapon === 'pistol' && this.ammo.pistol === 0
+        // Fight mode now reuses pencilIdle (per design — same standing pose as option 3)
+        const useFightIdle = isPistolEmpty && this.actions.fightIdle
+        const usePencilIdle = (isKnife || isFightMode) && this.actions.pencilIdle
+        const useRifleIdle = this.currentWeapon === 'machinegun' && this.actions.rifleIdle
+        // Backward detection — velocity opposes character facing
+        const fcx = -Math.sin(this.group.rotation.y)
+        const fcz = -Math.cos(this.group.rotation.y)
+        const fwdDot = this.velocity.x * fcx + this.velocity.z * fcz
+        const movingBack = moving && fwdDot < -1.0
+        // Right vector (perpendicular to forward, pointing right of character)
+        const rcx = Math.cos(this.group.rotation.y)
+        const rcz = -Math.sin(this.group.rotation.y)
+        const rightDot = this.velocity.x * rcx + this.velocity.z * rcz
+        const sideDominant = moving && Math.abs(rightDot) > Math.abs(fwdDot) + 0.5
+        // Running Backward — when aim-locked on enemy and moving away
+        const useRunBack = movingBack && this.autoAimTarget && this.actions.runBack
+        const useWalkBack = movingBack && this.currentWeapon === 'pistol' && this.actions.walkBack
+        const useFightRun = isFightMode && moving && this.actions.fightRun
+        // Strafe anims are rifle-specific — only play when machinegun is held
+        const isMG = this.currentWeapon === 'machinegun'
+        const useStrafeRight = isMG && sideDominant && rightDot > 0 && this.actions.strafeRight
+        const useStrafeLeft = isMG && sideDominant && rightDot < 0 && this.actions.strafeLeft
         const base = moving
-          ? (isKnife ? 'knifeWalk' : (speedNow > 5.5 ? 'run' : 'walk'))
-          : (isKnife ? 'knifeIdle' : 'idle')
+          ? (useStrafeLeft ? 'strafeLeft'
+            : useStrafeRight ? 'strafeRight'
+            : useRunBack ? 'runBack'
+            : useWalkBack ? 'walkBack'
+            : useFightRun ? 'fightRun'
+            : (isKnife ? 'knifeWalk' : (speedNow > 5.5 ? 'run' : 'walk')))
+          : (usePencilIdle ? 'pencilIdle'
+            : useFightIdle ? 'fightIdle'
+            : useRifleIdle ? 'rifleIdle'
+            : (isKnife ? 'knifeIdle' : 'idle'))
         this._switchTo(base)
         // Intense knife walk: 1.4x playback speed for purposeful stride
         const ts = isKnife && moving ? 1.4
@@ -896,20 +1107,75 @@ export class Player {
     const diff = Math.atan2(Math.sin(desiredYaw - cur), Math.cos(desiredYaw - cur))
     this.group.rotation.y = cur + diff * Math.min(delta * 14, 1)
 
-    // Weapon switching (1/2/3 keys)
+    // Weapon switching (1/2/3/4 keys)
     if (inputs.consumePress('1')) this.setWeapon('pistol')
     if (inputs.consumePress('2')) this.setWeapon('machinegun')
     if (inputs.consumePress('3')) this.setWeapon('pencil')
+    if (inputs.consumePress('4')) this.setWeapon('fight')
+
+    // Fist combos — A / B keys. Each press is a 3-hit combo timed across the clip.
+    const punchA = inputs.consumePress('a')
+    const punchB = inputs.consumePress('b')
+    if ((punchA || punchB) && !this._punching && !this._takedownActive && !this._hitReacting) {
+      const clipName = punchA ? 'fistA' : 'fistB'
+      const action = this.actions?.[clipName]
+      if (action) {
+        this._punching = true
+        this._playOneShot(clipName, 0.05)
+        const dur = (action.getClip().duration || 1.0) * 1000
+        clearTimeout(this._punchTimer)
+        this._punchTimer = setTimeout(() => { this._punching = false }, dur)
+        // Combo: 3 timed damage events at impact frames (25%, 55%, 85% through the clip)
+        clearTimeout(this._comboT1); clearTimeout(this._comboT2); clearTimeout(this._comboT3)
+        this._comboT1 = setTimeout(() => this._punchHit(enemies, onHitEnemy), dur * 0.25)
+        this._comboT2 = setTimeout(() => this._punchHit(enemies, onHitEnemy), dur * 0.55)
+        this._comboT3 = setTimeout(() => this._punchHit(enemies, onHitEnemy), dur * 0.85)
+      }
+    }
 
     // Attack — pistol/MG fire bullets, pencil stabs melee
     this.fireCooldown -= delta
     if (wantFire && this.fireCooldown <= 0) {
       if (this.currentWeapon === 'pencil') {
-        this._stabMelee(enemies, onHitEnemy)
-        this.fireCooldown = 0.55
+        if (this.ammo.pencil > 0) {
+          this._stabMelee(enemies, onHitEnemy)
+          this.fireCooldown = 0.55
+        }
+      } else if (this.currentWeapon === 'fight') {
+        // Fight mode space — random kick or punch combo
+        if (!this._punching && !this._hitReacting) {
+          const pool = []
+          if (this.actions?.kick) pool.push('kick')
+          if (this.actions?.punch) pool.push('punch')
+          if (pool.length > 0) {
+            const clipName = pool[Math.floor(Math.random() * pool.length)]
+            const action = this.actions[clipName]
+            this._punching = true
+            this._playOneShot(clipName, 0.05)
+            const dur = (action.getClip().duration || 0.8) * 1000
+            clearTimeout(this._punchTimer)
+            this._punchTimer = setTimeout(() => { this._punching = false }, dur)
+            // Damage delivered at mid-clip — strike connects on the swing peak
+            clearTimeout(this._kickHitTimer)
+            this._kickHitTimer = setTimeout(() => this._punchHit(enemies, onHitEnemy), dur * 0.5)
+            this.fireCooldown = 0.4
+          }
+        }
       } else {
-        this.shoot()
-        this.fireCooldown = this.currentWeapon === 'machinegun' ? 0.06 : 0.18
+        const ammo = this.ammo[this.currentWeapon]
+        if (ammo === undefined || ammo > 0) {
+          this.shoot()
+          this.fireCooldown = this.currentWeapon === 'machinegun' ? 0.06 : 0.18
+          if (ammo !== undefined) {
+            this.ammo[this.currentWeapon] = ammo - 1
+            this._updateWeaponHUD()
+            if (this.ammo[this.currentWeapon] === 0 && this.weapons[this.currentWeapon]) {
+              this.weapons[this.currentWeapon].visible = false
+              // Auto-promote to next weapon in the order pistol → MG → pencil → fight
+              this._autoSwitchOnEmpty()
+            }
+          }
+        }
       }
     }
 
@@ -974,9 +1240,35 @@ export class Player {
     }
   }
 
+  // Fist punch — front cone of 2.5m + omni 1.2m grace circle for very close enemies
+  _punchHit(enemies, onHitEnemy) {
+    const PUNCH_RANGE = 2.5
+    const OMNI_RANGE = 1.2
+    const facing = this.group.rotation.y
+    const fwdX = -Math.sin(facing)
+    const fwdZ = -Math.cos(facing)
+    let target = null, bestDist = PUNCH_RANGE
+    for (const e of enemies) {
+      if (!e.alive) continue
+      const dx = e.position.x - this.position.x
+      const dz = e.position.z - this.position.z
+      const d = Math.hypot(dx, dz)
+      if (d > PUNCH_RANGE) continue
+      const dot = (dx * fwdX + dz * fwdZ) / (d || 1)
+      // Front cone (~78°) OR very close (omni grace)
+      if (dot < 0.2 && d > OMNI_RANGE) continue
+      if (d < bestDist) { bestDist = d; target = e }
+    }
+    console.log('[Player] punch — target:', target ? `enemy at ${bestDist.toFixed(2)}m` : 'NONE', 'alive:', enemies.filter(e => e.alive).length)
+    if (target) {
+      const hitDir = { x: -fwdX, z: -fwdZ }
+      onHitEnemy(target, 10, enemies, hitDir, 'melee')
+    }
+  }
+
   _stabMelee(enemies, onHitEnemy) {
     if (this._takedownActive) return
-    const STAB_RANGE = 5.0   // generous range to ensure trigger
+    const STAB_RANGE = 1.8   // arm-reach distance for pencil/knife stab
     let target = null, bestDist = STAB_RANGE
     for (const e of enemies) {
       if (!e.alive) continue
@@ -986,12 +1278,45 @@ export class Player {
       if (d < bestDist) { bestDist = d; target = e }
     }
     console.log('Stab: target =', target ? `enemy at ${bestDist.toFixed(2)}m` : 'NONE (air stab)', 'enemies alive:', enemies.filter(e => e.alive).length)
-    if (target) {
-      this._startTakedown(target, enemies, onHitEnemy)
+    // Play outward-slash anim regardless of target — visual feedback for the stab
+    if (this.actions?.stab) {
+      this._punching = true   // reuse flag to block locomotion swap
+      this._playOneShot('stab', 0.05)
+      const dur = (this.actions.stab.getClip().duration || 0.6) * 1000
+      clearTimeout(this._punchTimer)
+      this._punchTimer = setTimeout(() => { this._punching = false }, dur)
     } else {
       this._stabTime = 0.35
-      const w = this.weapons?.pencil
-      if (w) w.userData.stabTime = 0.35
+    }
+    const w = this.weapons?.pencil
+    if (w) w.userData.stabTime = 0.35
+
+    if (target) {
+      // Damage delivered at end of stab clip — blade must connect first
+      const dx = target.position.x - this.position.x
+      const dz = target.position.z - this.position.z
+      const d = Math.hypot(dx, dz) || 1
+      const hitDir = { x: -dx / d, z: -dz / d }
+      // Damage lands at the blade's mid-point of the slash (50% through the clip)
+      const dur = (this.actions?.stab?.getClip().duration || 0.6) * 1000
+      clearTimeout(this._stabHitTimer)
+      this._stabHitTimer = setTimeout(() => {
+        if (!target.alive) return
+        // Re-check range so target running away dodges the hit
+        const ndx = target.position.x - this.position.x
+        const ndz = target.position.z - this.position.z
+        if (Math.hypot(ndx, ndz) > STAB_RANGE + 0.5) return
+        onHitEnemy(target, 80, enemies, hitDir, 'melee')
+        // Pencil ammo: each successful stab consumes one charge — runs out → auto-switch
+        if (this.ammo.pencil > 0) {
+          this.ammo.pencil -= 1
+          this._updateWeaponHUD()
+          if (this.ammo.pencil === 0) {
+            if (this.weapons.pencil) this.weapons.pencil.visible = false
+            this._autoSwitchOnEmpty()
+          }
+        }
+      }, dur * 0.5)
     }
   }
 
@@ -1150,15 +1475,47 @@ export class Player {
     // Bullets still fire; animation stays in walk/idle
   }
 
-  takeDamage(n) {
-    this.hp = Math.max(0, this.hp - n)
-    // Hit reaction — play Mixamo Stomach Hit clip if alive and not in takedown/dodge
-    if (this.hp > 0 && this.actions?.hit && !this._takedownActive && !this._dodging) {
-      this._hitReacting = true
-      this._playOneShot('hit', 0.05)
-      const dur = (this.actions.hit.getClip().duration || 0.7) * 1000
-      clearTimeout(this._hitTimer)
-      this._hitTimer = setTimeout(() => { this._hitReacting = false }, Math.min(dur, 800))
+  _die() {
+    if (this._dead) return
+    this._dead = true
+    const action = this.actions?.death
+    let dur = 1500
+    if (action) {
+      this._playOneShot('death', 0.1)
+      dur = (action.getClip().duration || 1.5) * 1000
     }
+    // Procedural ground descent — Hips.position stripped, drop group y so body lays flat on floor
+    this._deathT = 0
+    this._deathDur = dur / 1000
+    this._deathDropTarget = 0.9
+    // Show Mission Failed banner after death clip finishes
+    setTimeout(() => {
+      if (window.__GAME__?.ui?.showGameOver) window.__GAME__.ui.showGameOver()
+    }, dur)
+  }
+
+  takeDamage(n, type = 'ranged') {
+    if (this._dead) return
+    // Invincible while punching — combo absorbs incoming hits
+    if (this._punching) return
+    this.hp = Math.max(0, this.hp - n)
+    // Visible hit indicator at chest height
+    const world = window.__GAME__?.world
+    if (world?.spawnHitImpact) {
+      world.spawnHitImpact(this.position.x, this.position.y + 1.4, this.position.z, null)
+    }
+    if (this.hp <= 0) {
+      this._die()
+      return
+    }
+    if (this._takedownActive || this._dodging) return
+    // Pick reaction clip — melee uses "Hit To Body", ranged uses "Stomach Hit"
+    const clipName = (type === 'melee' && this.actions?.hitMelee) ? 'hitMelee' : 'hit'
+    if (!this.actions?.[clipName]) return
+    this._hitReacting = true
+    this._playOneShot(clipName, 0.05)
+    const dur = (this.actions[clipName].getClip().duration || 0.7) * 1000
+    clearTimeout(this._hitTimer)
+    this._hitTimer = setTimeout(() => { this._hitReacting = false }, dur)
   }
 }
