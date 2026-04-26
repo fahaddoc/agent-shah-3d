@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 
 const ENEMY_DRACO = new DRACOLoader()
 ENEMY_DRACO.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
@@ -54,14 +56,19 @@ export class Enemy {
     const loader = new GLTFLoader()
     loader.setDRACOLoader(ENEMY_DRACO)
     const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
+    const fbxLoader = new FBXLoader()
+    const loadFBX = (url) => new Promise((res, rej) => fbxLoader.load(url, res, undefined, rej))
     Promise.all([
-      loadGLB('/assets/models/enemy.glb'),                    // Josh + Pistol Walk
-      loadGLB('/assets/models/enemy-idle.glb').catch(() => null)  // Josh + Pistol Idle
-    ]).then(([walkGltf, idleGltf]) => this._handleJoshLoaded(walkGltf, idleGltf))
+      loadGLB('/assets/models/enemy.glb'),                                  // Josh + Pistol Walk
+      loadGLB('/assets/models/enemy-idle.glb').catch(() => null),           // Josh + Pistol Idle
+      loadFBX('/assets/models/enemy-death-front.fbx').catch(() => null),    // Mixamo Death From Front
+      loadFBX('/assets/models/enemy-death-back.fbx').catch(() => null)      // Mixamo Death From Back
+    ]).then(([walkGltf, idleGltf, deathFrontFbx, deathBackFbx]) =>
+        this._handleJoshLoaded(walkGltf, idleGltf, deathFrontFbx, deathBackFbx))
       .catch(() => {})
   }
 
-  _handleJoshLoaded(walkGltf, idleGltf) {
+  _handleJoshLoaded(walkGltf, idleGltf, deathFrontGltf, deathBackGltf) {
     const keep = new Set([this.hpBar, this.visionMesh, this.alertIcon])
     for (const child of [...this.group.children]) {
       if (!keep.has(child)) child.visible = false
@@ -89,10 +96,29 @@ export class Enemy {
       }
     })
 
-    // Pistol parented to group, synced to right-hand world per frame
-    let enemyHand = null
-    model.traverse(o => { if (o.name === 'mixamorig:RightHand') enemyHand = o })
+    // Pistol parented to group, synced to right-hand world per frame.
+    // Try multiple bone-name variants — Mixamo FBX→GLB conversion sometimes drops the colon.
+    const findBone = (root, names) => {
+      let found = null
+      root.traverse(o => {
+        if (found) return
+        for (const n of names) if (o.name === n) { found = o; return }
+      })
+      if (!found) {
+        root.traverse(o => {
+          if (found) return
+          const lower = (o.name || '').toLowerCase()
+          for (const n of names) {
+            const needle = n.replace('mixamorig:', '').toLowerCase()
+            if (lower.includes(needle)) { found = o; return }
+          }
+        })
+      }
+      return found
+    }
+    const enemyHand = findBone(model, ['mixamorig:RightHand', 'mixamorigRightHand', 'RightHand'])
     this.rightHandBone = enemyHand
+    if (!enemyHand) console.warn('[Enemy] RightHand bone not found — pistol will be missing')
     if (enemyHand) {
       const pistol = new THREE.Group()
       const bodyMat  = new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.85, roughness: 0.35 })
@@ -119,25 +145,91 @@ export class Enemy {
     // Animation setup — walk + idle clips
     this.mixer = new THREE.AnimationMixer(model)
     this.actions = {}
+    // Build set of target bone names for retargeting clip tracks
+    const targetBones = new Set()
+    model.traverse(o => { if (o.isBone) targetBones.add(o.name) })
     const stripRoot = (clip) => {
       if (!clip) return null
       clip.tracks = clip.tracks.filter(t => !/Hips\.position$/i.test(t.name))
       return clip
     }
-    const makeAction = (clip, label, loop = true) => {
+    // Aggressive bone-name normalizer for Mixamo FBX → GLB skeleton mismatch.
+    // FBXLoader produces names like "mixamorig1Hips" / "mixamorigHips"; GLB uses "mixamorig:Hips".
+    // Also handles bare names "Hips", and namespaced "Armature|mixamorig:Hips".
+    const normalizeTrackNames = (clip) => {
       if (!clip) return null
-      stripRoot(clip)
+      const targetArr = Array.from(targetBones)
+      let bound = 0, total = 0
+      for (const t of clip.tracks) {
+        total++
+        const dotIdx = t.name.lastIndexOf('.')
+        const rawBone = dotIdx >= 0 ? t.name.slice(0, dotIdx) : t.name
+        const propPart = dotIdx >= 0 ? t.name.slice(dotIdx) : ''
+        if (targetBones.has(rawBone)) { bound++; continue }
+        // Strip pipe namespace prefix (Armature|x)
+        const afterPipe = rawBone.includes('|') ? rawBone.split('|').pop() : rawBone
+        // Strip mixamorig prefix variants: mixamorig:, mixamorig1, mixamorig9, mixamorig
+        const stripped = afterPipe.replace(/^mixamorig\d*[:_]?/, '')
+        // Candidate forms in priority order
+        const candidates = [
+          afterPipe,
+          `mixamorig:${stripped}`,
+          `mixamorig${stripped}`,
+          stripped,
+        ]
+        let matched = null
+        for (const c of candidates) {
+          if (targetBones.has(c)) { matched = c; break }
+        }
+        // Last resort: substring match (suffix) against any target bone
+        if (!matched && stripped.length > 2) {
+          matched = targetArr.find(b => b.endsWith(stripped) || b.endsWith(`:${stripped}`)) || null
+        }
+        if (matched) {
+          t.name = matched + propPart
+          bound++
+        }
+      }
+      console.log(`[Enemy] normalizeTrackNames: bound ${bound}/${total} tracks`)
+      return clip
+    }
+    const makeAction = (clip, label, loop = true, normalize = false, keepRoot = false) => {
+      if (!clip) return null
+      if (normalize) normalizeTrackNames(clip)
+      if (!keepRoot) stripRoot(clip)
       clip.name = label
       const a = this.mixer.clipAction(clip)
       a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
       a.clampWhenFinished = !loop
       return a
     }
+    // Death clips need Hips.position so the body descends to floor — keepRoot=true
+    const retargetFbxClip = (fbxScene, label, keepRoot = false) => {
+      if (!fbxScene || !fbxScene.animations?.[0]) return null
+      const srcClip = fbxScene.animations[0]
+      try {
+        const retargeted = SkeletonUtils.retargetClip(model, fbxScene, srcClip, { useTargetMatrix: true })
+        if (retargeted && retargeted.tracks.length > 0) {
+          console.log(`[Enemy] retargetClip ${label}: ${retargeted.tracks.length} tracks`)
+          return makeAction(retargeted, label, false, true, keepRoot)
+        }
+      } catch (e) {
+        console.warn(`[Enemy] retargetClip ${label} failed:`, e.message)
+      }
+      return makeAction(srcClip, label, false, true, keepRoot)
+    }
     this.actions.walk = makeAction(walkGltf.animations?.[0], 'walk', true)
     this.actions.run  = this.actions.walk
     this.actions.idle = makeAction(idleGltf?.animations?.[0], 'idle', true) || this.actions.walk
     this.actions.fire = this.actions.walk
-    this.actions.die  = this.actions.walk
+    this.actions.deathFront = retargetFbxClip(deathFrontGltf, 'deathFront', false)
+    this.actions.deathBack  = retargetFbxClip(deathBackGltf,  'deathBack',  false)
+    // Debug log to identify mismatch — paste first lines of track + bones
+    if (deathFrontGltf?.animations?.[0]) {
+      const tr = deathFrontGltf.animations[0].tracks
+      console.log('[Enemy] FBX clip first 3 track names:', tr.slice(0, 3).map(t => t.name))
+      console.log('[Enemy] GLB target bones first 6:', Array.from(targetBones).slice(0, 6))
+    }
 
     this._switchAnim('idle')
   }
@@ -420,9 +512,31 @@ export class Enemy {
 
   update(delta, playerPos, camera, onHitPlayer, allEnemies = null) {
     this._allEnemies = allEnemies
-    // Freeze during takedown OR after death — no mixer, body stays still
-    if (this._frozenForTakedown || !this.alive) {
-      if (this.alive && this.hpBar) this.hpBar.lookAt(camera.position)
+    // Takedown handles its own fall — skip everything
+    if (this._frozenForTakedown) {
+      return
+    }
+    // Dead — let death clip mixer run, or progress procedural fall
+    if (!this.alive) {
+      if (this._playingDeathClip && this.mixer) {
+        this.mixer.update(delta)
+        // Procedural ground descent — body horizontal pose lands flat on floor
+        this._deathT = (this._deathT || 0) + delta
+        const p = Math.min(1, this._deathT / (this._deathDur || 1.5))
+        const eased = p * p   // ease-in: faster drop near end
+        this.group.position.y = this.position.y - (this._deathDropTarget || 0.9) * eased
+      }
+      // Keep pistol synced to hand bone during death so it falls with body
+      if (this.pistolMesh && this.rightHandBone) {
+        const pos = new THREE.Vector3()
+        this.rightHandBone.getWorldPosition(pos)
+        this.group.worldToLocal(pos)
+        this.pistolMesh.position.copy(pos)
+        this.pistolMesh.rotation.set(0, Math.PI, 0)
+        this.pistolMesh.scale.setScalar(0.33)
+      }
+      if (this._dying) this._updateDying(delta)
+      this._updateBullets(delta, playerPos, onHitPlayer)
       return
     }
     if (this.mixer) this.mixer.update(delta)
@@ -614,7 +728,8 @@ export class Enemy {
           const dx = b.mesh.position.x - e.position.x
           const dz = b.mesh.position.z - e.position.z
           if (Math.hypot(dx, dz) < 1.0) {
-            e.silentKill()
+            const hitDir = { x: -b.dir.x, z: -b.dir.z }
+            e.silentKill(hitDir)
             b.life = 0
             break
           }
@@ -638,7 +753,7 @@ export class Enemy {
     }
   }
 
-  takeDamage(n, allEnemies) {
+  takeDamage(n, allEnemies, hitDir = null) {
     if (!this.alive) return
     this.hp -= n
     // taking damage = instant alert + alert nearby
@@ -647,27 +762,92 @@ export class Enemy {
       this.suspicionTimer = 0
       if (allEnemies) this.alertNearby(allEnemies)
     }
-    if (this.hp <= 0) this.die()
+    if (this.hp <= 0) this.die(hitDir)
   }
 
-  silentKill() {
+  silentKill(hitDir = null) {
     if (!this.alive) return
     this.hp = 0
-    this.die()
+    this.die(hitDir)
     // intentional: no alert propagation
   }
 
-  die() {
+  die(hitDir = null) {
     this.alive = false
     this.hpBar.visible = false
     this.visionMesh.visible = false
     this.alertIcon.visible = false
-    if (this.actions?.die) {
-      this._switchAnim('die', 0.1)
-    } else {
-      this.group.rotation.x = Math.PI / 2
-      this.group.position.y = 0.2
+    // Takedown drives its own bone-level fall — don't double-animate
+    if (this._frozenForTakedown) return
+
+    // Pick directional Mixamo death clip if available
+    let clipName = null
+    if (hitDir && (this.actions?.deathFront || this.actions?.deathBack)) {
+      // Enemy forward vector — model rotated 180° at load → forward = -Z rotated by facing
+      const fx = Math.sin(this.facing + Math.PI)
+      const fz = Math.cos(this.facing + Math.PI)
+      // hitDir points FROM enemy TOWARD attacker. Dot > 0 = attacker in front
+      const dot = hitDir.x * fx + hitDir.z * fz
+      clipName = dot > 0 ? 'deathFront' : 'deathBack'
+      // Fallback to whichever exists
+      if (!this.actions[clipName]) clipName = this.actions.deathFront ? 'deathFront' : 'deathBack'
+    } else if (this.actions?.deathFront) {
+      clipName = 'deathFront'
+    } else if (this.actions?.deathBack) {
+      clipName = 'deathBack'
     }
-    // Body stays on floor permanently
+
+    if (clipName && this.actions[clipName]) {
+      // Mixamo clip drives the fall via mixer
+      this._playingDeathClip = true
+      const action = this.actions[clipName]
+      action.reset()
+      action.setLoop(THREE.LoopOnce, 1)
+      action.clampWhenFinished = true
+      action.fadeIn(0.05).play()
+      if (this._currentAction && this._currentAction !== action) this._currentAction.fadeOut(0.05)
+      this._currentAction = action
+      this._currentActionName = clipName
+      // Procedural descent — Hips.position stripped, so drop group y from 0 to -hipRest over clip duration.
+      // Mixamo character scaled 1.2 → hip rest height ≈ 0.9m. Body lying flat lands at floor.
+      this._deathT = 0
+      this._deathDur = action.getClip().duration || 1.5
+      this._deathDropTarget = 0.9
+      return
+    }
+
+    // Fallback: procedural fall (face-plant) when no clip available
+    this._dying = true
+    this._dyingT = 0
+    if (this._currentAction) {
+      this._currentAction.fadeOut(0.15)
+      this._currentAction = null
+      this._currentActionName = null
+    }
+  }
+
+  _updateDying(delta) {
+    this._dyingT += delta
+    const dur = 0.7
+    const p = Math.min(1, this._dyingT / dur)
+    if (p < 0.25) {
+      // Brief stagger backward — recoil from hit
+      const k = p / 0.25
+      this.group.rotation.x = -k * 0.18
+      this.group.position.y = this.position.y
+    } else {
+      // Forward face-plant — knees buckle, body tips over
+      const k = (p - 0.25) / 0.75
+      const eased = k * (2 - k)   // ease-out quad
+      this.group.rotation.x = -0.18 * (1 - eased) + (Math.PI / 2) * eased
+      this.group.rotation.z = Math.sin(p * Math.PI) * 0.12   // slight twist
+      this.group.position.y = this.position.y + eased * 0.1
+    }
+    if (p >= 1) {
+      this._dying = false
+      this.group.rotation.x = Math.PI / 2
+      this.group.rotation.z = 0
+      this.group.position.y = this.position.y + 0.1
+    }
   }
 }

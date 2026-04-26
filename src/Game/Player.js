@@ -795,16 +795,18 @@ export class Player {
       this.head.position.y += (2.05 - this.head.position.y) * 0.2
     }
 
-    // Auto-aim: snap only to ALERT enemies
-    const AUTO_AIM_RANGE = 12
+    // Auto-aim: ALERT enemies at long range, ANY alive enemy at close range
+    const AUTO_AIM_ALERT_RANGE = 12
+    const AUTO_AIM_NEAR_RANGE = 5
     let target = null
-    let bestDist = AUTO_AIM_RANGE
+    let bestDist = Infinity
     for (const en of enemies) {
       if (!en.alive) continue
-      if (en.state !== 'ALERT') continue
       const dx = en.position.x - this.position.x
       const dz = en.position.z - this.position.z
       const d = Math.hypot(dx, dz)
+      const inRange = (en.state === 'ALERT' && d < AUTO_AIM_ALERT_RANGE) || (d < AUTO_AIM_NEAR_RANGE)
+      if (!inRange) continue
       if (d < bestDist) { bestDist = d; target = en }
     }
     this.autoAimTarget = target
@@ -877,7 +879,9 @@ export class Player {
           const dmg = this.currentWeapon === 'machinegun' ? 10
                     : this.currentWeapon === 'pencil' ? 80
                     : 25
-          onHitEnemy(e, dmg, enemies)
+          // Hit direction: enemy → shooter is opposite of bullet flight
+          const hitDir = { x: -b.dir.x, z: -b.dir.z }
+          onHitEnemy(e, dmg, enemies, hitDir)
           b.life = 0
           break
         }
@@ -1038,7 +1042,13 @@ export class Player {
     mesh.position.copy(this.muzzleWorld)
     this.scene.add(mesh)
     this.bullets.push({ mesh, dir: this.aim.clone().normalize(), speed: 38, life: 1.4 })
-    if (this.flash?.material) this.flash.material.opacity = 1.0
+    // Flash + bullet must originate at the actual gun muzzle, not the stub position.
+    if (this.flash?.material) {
+      const flashLocal = this.muzzleWorld.clone()
+      this.group.worldToLocal(flashLocal)
+      this.flash.position.copy(flashLocal)
+      this.flash.material.opacity = 1.0
+    }
     if (this.armRig) {
       this.armRig.position.z = 0.08
       setTimeout(() => { if (this.armRig) this.armRig.position.z = 0 }, 60)

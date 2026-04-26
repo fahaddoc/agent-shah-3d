@@ -183,7 +183,7 @@ export class Game {
       this.raycaster,
       this.world.groundPlane,
       this.enemies,
-      (enemy, dmg, all) => enemy.takeDamage(dmg, all)
+      (enemy, dmg, all, hitDir) => enemy.takeDamage(dmg, all, hitDir)
     )
 
     for (const en of this.enemies) {
