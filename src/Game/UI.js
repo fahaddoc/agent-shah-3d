@@ -1,5 +1,5 @@
 import { PROFILE, SKILLS, PROJECTS, EXPERIENCE } from '../data/portfolio.js'
-import { fbxProgress } from './fbxCache.js'
+import { glbProgress as fbxProgress } from './glbCache.js'
 
 export class UI {
   constructor() {
