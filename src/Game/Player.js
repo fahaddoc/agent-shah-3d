@@ -921,14 +921,24 @@ export class Player {
       const t = this.physicsBody.translation()
       let nx = t.x + corrected.x
       let nz = t.z + corrected.z
-      // Hard-clamp to playable arena (warehouse interior) — belt-and-suspenders
-      // in case any collider has a gap.
-      const b = this.arenaBounds
-      if (b) {
-        if (nx < b.minX) nx = b.minX
-        else if (nx > b.maxX) nx = b.maxX
-        if (nz < b.minZ) nz = b.minZ
-        else if (nz > b.maxZ) nz = b.maxZ
+      // Hard-clamp to playable arena (union of rectangles) — belt-and-suspenders
+      // in case any collider has a gap. Each rect = {minX,maxX,minZ,maxZ}.
+      const rects = this.arenaBounds?.rects
+      if (rects && rects.length) {
+        let inside = false
+        for (const r of rects) {
+          if (nx >= r.minX && nx <= r.maxX && nz >= r.minZ && nz <= r.maxZ) { inside = true; break }
+        }
+        if (!inside) {
+          let bestD = Infinity, bx = nx, bz = nz
+          for (const r of rects) {
+            const cx = nx < r.minX ? r.minX : (nx > r.maxX ? r.maxX : nx)
+            const cz = nz < r.minZ ? r.minZ : (nz > r.maxZ ? r.maxZ : nz)
+            const d = (nx - cx) * (nx - cx) + (nz - cz) * (nz - cz)
+            if (d < bestD) { bestD = d; bx = cx; bz = cz }
+          }
+          nx = bx; nz = bz
+        }
       }
       const next = { x: nx, y: t.y + corrected.y, z: nz }
       this.physicsBody.setNextKinematicTranslation(next)
