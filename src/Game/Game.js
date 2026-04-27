@@ -170,6 +170,7 @@ export class Game {
     // End intro when player reaches target
     if (this.player.position.z <= targetZ + 0.05) {
       this.world.setDoorOpen(1)
+      this.world.sealDoor?.(this.physics)
       this.phase = PHASE.PLAY
       this.ui.setHint('WASD move · MOUSE/SPACE shoot · F stealth-kill')
     }
