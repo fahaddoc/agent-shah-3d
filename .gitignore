@@ -9,3 +9,4 @@ public/assets/models/*.fbx
 
 # Pistol starter pack (~58MB FBX/textures) — bundled separately
 public/assets/pistol-starter/
+.vercel
