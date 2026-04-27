@@ -1093,22 +1093,21 @@ export class Player {
     }
     this.autoAimTarget = target
 
-    // Mouse-aim: project the cursor onto the ground plane. Active when mouse
-    // is down (clicking/firing) or has moved within the last 1.2s — falls back
-    // to auto-aim / movement once the player goes idle.
+    // Mouse-aim: only while LEFT mouse is held. Project cursor onto the ground
+    // plane and aim at that point. Released → falls back to auto-aim / movement.
     let mouseAimX = 0, mouseAimZ = 0, mouseAimActive = false
-    if (raycaster && groundPlane && inputs.mouse?.seen) {
+    if (inputs.mouse?.down && raycaster && groundPlane) {
       const cam = window.__GAME__?.camera?.instance
       if (cam) {
         raycaster.setFromCamera({ x: inputs.mouse.ndcX, y: inputs.mouse.ndcY }, cam)
-        const hit = new THREE.Vector3()
-        if (raycaster.ray.intersectPlane(groundPlane, hit)) {
+        // Reject hits behind the camera (intersectPlane returns null in that case)
+        const hit = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3())
+        if (hit) {
           const dx = hit.x - this.position.x
           const dz = hit.z - this.position.z
-          if (Math.hypot(dx, dz) > 0.4) {
+          if (Math.hypot(dx, dz) > 0.8) {   // dead-zone — don't snap-spin near self
             mouseAimX = dx; mouseAimZ = dz
-            const recent = (performance.now() - inputs.mouse.movedAt) < 1200
-            mouseAimActive = inputs.mouse.down || recent
+            mouseAimActive = true
           }
         }
       }
