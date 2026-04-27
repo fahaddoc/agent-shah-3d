@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && find dist/assets/models -name '*.fbx' -delete && find dist/assets/models -type d -name '*.fbm' -exec rm -rf {} + && rm -rf dist/assets/pistol-starter",
     "preview": "vite preview"
   },
   "dependencies": {

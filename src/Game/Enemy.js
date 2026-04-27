@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { loadFbxCached } from './fbxCache.js'
+import { loadGlbCached as loadFbxCached } from './glbCache.js'
 
 const ENEMY_DRACO = new DRACOLoader()
 ENEMY_DRACO.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
@@ -66,19 +66,19 @@ export class Enemy {
     const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
     const loadFBX = (url) => loadFbxCached(url)
     return Promise.all([
-      loadFBX('/assets/models/enemy-character.fbx').catch(() => null),      // Mixamo Gas Mask soldier — T-pose model
+      loadFBX('/assets/models-glb/enemy-character.glb').catch(() => null),      // Mixamo Gas Mask soldier — T-pose model
       loadGLB('/assets/models/enemy.glb'),                                  // Josh + Pistol Walk (anim source)
       loadGLB('/assets/models/enemy-idle.glb').catch(() => null),           // Josh + Pistol Idle (anim source)
-      loadFBX('/assets/models/enemy-death-front.fbx').catch(() => null),    // Mixamo Death From Front
-      loadFBX('/assets/models/enemy-death-back.fbx').catch(() => null),     // Mixamo Death From Back
-      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null),          // Mixamo Stomach Hit (ranged hit)
-      loadFBX('/assets/models/enemy-outward-slash.fbx').catch(() => null),  // Mixamo Stable Sword Outward Slash
-      loadFBX('/assets/models/enemy-ready-idle.fbx').catch(() => null),     // Mixamo Ready Idle
-      loadFBX('/assets/models/hit-body.fbx').catch(() => null),             // Mixamo Hit To Body (melee hit)
-      loadFBX('/assets/models/pistol-walk-backward.fbx').catch(() => null), // Mixamo Pistol Walk Backward Arc
-      loadFBX('/assets/models/standard-run.fbx').catch(() => null),         // Mixamo Standard Run — out-of-ammo charge
-      loadFBX('/assets/models/mma-kick.fbx').catch(() => null),             // Mixamo MMA Kick — melee attack
-      loadFBX('/assets/models/punching.fbx').catch(() => null)              // Mixamo Punching — melee attack
+      loadFBX('/assets/models-glb/enemy-death-front.glb').catch(() => null),    // Mixamo Death From Front
+      loadFBX('/assets/models-glb/enemy-death-back.glb').catch(() => null),     // Mixamo Death From Back
+      loadFBX('/assets/models-glb/hit-stomach.glb').catch(() => null),          // Mixamo Stomach Hit (ranged hit)
+      loadFBX('/assets/models-glb/enemy-outward-slash.glb').catch(() => null),  // Mixamo Stable Sword Outward Slash
+      loadFBX('/assets/models-glb/enemy-ready-idle.glb').catch(() => null),     // Mixamo Ready Idle
+      loadFBX('/assets/models-glb/hit-body.glb').catch(() => null),             // Mixamo Hit To Body (melee hit)
+      loadFBX('/assets/models-glb/pistol-walk-backward.glb').catch(() => null), // Mixamo Pistol Walk Backward Arc
+      loadFBX('/assets/models-glb/standard-run.glb').catch(() => null),         // Mixamo Standard Run — out-of-ammo charge
+      loadFBX('/assets/models-glb/mma-kick.glb').catch(() => null),             // Mixamo MMA Kick — melee attack
+      loadFBX('/assets/models-glb/punching.glb').catch(() => null)              // Mixamo Punching — melee attack
     ]).then(([charFbx, walkGltf, idleGltf, deathFrontFbx, deathBackFbx, hitFbx, slashFbx, readyIdleFbx, hitBodyFbx, walkBackFbx, oooRunFbx, mmaKickFbx, punchingFbx]) =>
         this._handleJoshLoaded(charFbx, walkGltf, idleGltf, deathFrontFbx, deathBackFbx, hitFbx, slashFbx, readyIdleFbx, hitBodyFbx, walkBackFbx, oooRunFbx, mmaKickFbx, punchingFbx))
       .catch(() => {})
