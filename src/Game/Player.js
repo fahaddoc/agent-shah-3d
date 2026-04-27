@@ -1093,21 +1093,42 @@ export class Player {
     }
     this.autoAimTarget = target
 
-    // Mouse-aim: only while LEFT mouse is held. Project cursor onto the ground
-    // plane and aim at that point. Released → falls back to auto-aim / movement.
+    // Mouse-aim: only while LEFT mouse is held. First check if the cursor ray
+    // passes near any alive enemy → snap to that enemy (so a click on the
+    // enemy's body actually hits them, not the ground behind). Otherwise fall
+    // back to projecting cursor onto the ground plane.
     let mouseAimX = 0, mouseAimZ = 0, mouseAimActive = false
     if (inputs.mouse?.down && raycaster && groundPlane) {
       const cam = window.__GAME__?.camera?.instance
       if (cam) {
         raycaster.setFromCamera({ x: inputs.mouse.ndcX, y: inputs.mouse.ndcY }, cam)
-        // Reject hits behind the camera (intersectPlane returns null in that case)
-        const hit = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3())
-        if (hit) {
-          const dx = hit.x - this.position.x
-          const dz = hit.z - this.position.z
-          if (Math.hypot(dx, dz) > 0.8) {   // dead-zone — don't snap-spin near self
-            mouseAimX = dx; mouseAimZ = dz
-            mouseAimActive = true
+        // 1) Snap-aim: closest alive enemy whose center is within ENEMY_PICK_R
+        //    of the ray (3D distance from ray to point).
+        const ENEMY_PICK_R = 1.4
+        let snapEnemy = null
+        let snapDist = ENEMY_PICK_R
+        const tmp = new THREE.Vector3()
+        for (const en of enemies) {
+          if (!en.alive) continue
+          // Use enemy chest height (~1.2) so the ray-to-point distance is fair
+          tmp.set(en.position.x, en.position.y + 1.2, en.position.z)
+          const d = raycaster.ray.distanceToPoint(tmp)
+          if (d < snapDist) { snapDist = d; snapEnemy = en }
+        }
+        if (snapEnemy) {
+          mouseAimX = snapEnemy.position.x - this.position.x
+          mouseAimZ = snapEnemy.position.z - this.position.z
+          mouseAimActive = true
+        } else {
+          // 2) Ground-plane fallback. Reject hits behind the camera.
+          const hit = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3())
+          if (hit) {
+            const dx = hit.x - this.position.x
+            const dz = hit.z - this.position.z
+            if (Math.hypot(dx, dz) > 0.8) {
+              mouseAimX = dx; mouseAimZ = dz
+              mouseAimActive = true
+            }
           }
         }
       }
