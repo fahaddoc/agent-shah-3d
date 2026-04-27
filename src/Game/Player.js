@@ -1093,8 +1093,31 @@ export class Player {
     }
     this.autoAimTarget = target
 
+    // Mouse-aim: project the cursor onto the ground plane. Active when mouse
+    // is down (clicking/firing) or has moved within the last 1.2s — falls back
+    // to auto-aim / movement once the player goes idle.
+    let mouseAimX = 0, mouseAimZ = 0, mouseAimActive = false
+    if (raycaster && groundPlane && inputs.mouse?.seen) {
+      const cam = window.__GAME__?.camera?.instance
+      if (cam) {
+        raycaster.setFromCamera({ x: inputs.mouse.ndcX, y: inputs.mouse.ndcY }, cam)
+        const hit = new THREE.Vector3()
+        if (raycaster.ray.intersectPlane(groundPlane, hit)) {
+          const dx = hit.x - this.position.x
+          const dz = hit.z - this.position.z
+          if (Math.hypot(dx, dz) > 0.4) {
+            mouseAimX = dx; mouseAimZ = dz
+            const recent = (performance.now() - inputs.mouse.movedAt) < 1200
+            mouseAimActive = inputs.mouse.down || recent
+          }
+        }
+      }
+    }
+
     let aimX, aimZ
-    if (target) {
+    if (mouseAimActive) {
+      aimX = mouseAimX; aimZ = mouseAimZ
+    } else if (target) {
       aimX = target.position.x - this.position.x
       aimZ = target.position.z - this.position.z
     } else if (moving) {
@@ -1114,9 +1137,12 @@ export class Player {
     // Determine fire intent first (affects facing)
     const wantFire = inputs.mouse.down || inputs.isDown(' ') || inputs.isDown('spacebar')
 
-    // Facing: movement direction when moving, else aim (auto-target); mouse ignored
+    // Facing: mouse-aim wins (so the character spins to where the player clicks),
+    // then auto-target, then movement, else hold last.
     let desiredYaw
-    if (target) {
+    if (mouseAimActive) {
+      desiredYaw = Math.atan2(aimX, aimZ) + Math.PI
+    } else if (target) {
       desiredYaw = Math.atan2(aimX, aimZ) + Math.PI
     } else if (moving) {
       desiredYaw = Math.atan2(this.velocity.x, this.velocity.z) + Math.PI
