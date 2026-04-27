@@ -95,8 +95,8 @@ export class Enemy {
     let model
     if (charFbx) {
       model = SkeletonUtils.clone(charFbx)
-      // FBXLoader returns Mixamo character in cm — match player height (~1.8m)
-      model.scale.setScalar(0.011)
+      // GLB (post-FBX2glTF) is already in meters — no cm→m conversion needed
+      model.scale.setScalar(1.2)
       // Mixamo characters face +Z by default → flip to -Z forward convention
       model.rotation.y = Math.PI
     } else {
