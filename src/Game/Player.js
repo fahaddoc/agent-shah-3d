@@ -919,7 +919,18 @@ export class Player {
       this.physicsCtrl.computeColliderMovement(this.physicsCollider, desired)
       const corrected = this.physicsCtrl.computedMovement()
       const t = this.physicsBody.translation()
-      const next = { x: t.x + corrected.x, y: t.y + corrected.y, z: t.z + corrected.z }
+      let nx = t.x + corrected.x
+      let nz = t.z + corrected.z
+      // Hard-clamp to playable arena (warehouse interior) — belt-and-suspenders
+      // in case any collider has a gap.
+      const b = this.arenaBounds
+      if (b) {
+        if (nx < b.minX) nx = b.minX
+        else if (nx > b.maxX) nx = b.maxX
+        if (nz < b.minZ) nz = b.minZ
+        else if (nz > b.maxZ) nz = b.maxZ
+      }
+      const next = { x: nx, y: t.y + corrected.y, z: nz }
       this.physicsBody.setNextKinematicTranslation(next)
       // Sync visual position (subtract 0.9 capsule offset to put feet on ground)
       this.position.set(next.x, next.y - 0.9, next.z)

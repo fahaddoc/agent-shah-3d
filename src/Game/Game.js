@@ -91,6 +91,11 @@ export class Game {
     // Player spawns inside the arena — keep them in by sealing the south door.
     this.world.sealDoor?.(this.physics)
     this.player.registerPhysics(this.physics)
+    // Hard arena bounds for the player — robust fallback in case a collider misses.
+    const hs = this.world.halfSize
+    if (hs) {
+      this.player.arenaBounds = { minX: -hs + 1, maxX: hs - 1, minZ: -hs + 1, maxZ: hs - 1 }
+    }
     // Live progress while heavy FBX clips load — keep loader visible until ready.
     // Use Promise.allSettled + per-promise catch so a single bad clip can't block the game.
     const tick = setInterval(() => this.ui.setLoaderProgress(), 100)
