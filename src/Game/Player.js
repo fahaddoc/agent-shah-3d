@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { loadFbxCached } from './fbxCache.js'
+import { loadGlbCached as loadFbxCached } from './glbCache.js'
 
 // Shared DRACO decoder (needed for Mixamo-compressed GLBs)
 const SHARED_DRACO = new DRACOLoader()
@@ -398,27 +398,27 @@ export class Player {
       loadGLB('/assets/models/anim-knife-walk.glb').catch(() => null),
       loadGLB('/assets/models/anim-knife-idle.glb').catch(() => null),
       loadGLB('/assets/models/anim-takedown.glb').catch(() => null),
-      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null),   // Mixamo "Stomach Hit" — ranged hit
-      loadFBX('/assets/models/hit-body.fbx').catch(() => null),      // Mixamo "Hit To Body" — melee hit
-      loadFBX('/assets/models/fight-idle.fbx').catch(() => null),    // Mixamo "Fight Idle" — out-of-ammo stance
-      loadFBX('/assets/models/fist-a.fbx').catch(() => null),        // Mixamo "Fist Fight A" — A key punch
-      loadFBX('/assets/models/fist-b.fbx').catch(() => null),        // Mixamo "Fist Fight B" — B key punch
-      loadFBX('/assets/models/enemy-outward-slash.fbx').catch(() => null), // Mixamo "Outward Slash" — fallback for stab
-      loadFBX('/assets/models/pistol-walk-backward.fbx').catch(() => null), // Mixamo "Pistol Walk Backward Arc"
-      loadFBX('/assets/models/stabbing.fbx').catch(() => null),            // Mixamo "Stabbing" — pencil stab anim
-      loadFBX('/assets/models/crouched-walking.fbx').catch(() => null),    // Mixamo "Crouched Walking" — pencil walk
-      loadFBX('/assets/models/death.fbx').catch(() => null),               // Mixamo "Death" — player game-over anim
-      loadFBX('/assets/models/mma-side-kick.fbx').catch(() => null),       // Mixamo "MMA Side Kick" — fight mode space
-      loadFBX('/assets/models/punching.fbx').catch(() => null),            // Mixamo "Punching" — fight mode space
-      loadFBX('/assets/models/fight-run.fbx').catch(() => null),           // Mixamo "Running" — fight mode running anim
-      loadFBX('/assets/models/running-backward.fbx').catch(() => null),    // Mixamo "Running Backward" — backpedal while aiming
-      loadFBX('/assets/models/grab-weapon.fbx').catch(() => null),         // Mixamo "Grab Rifle From The Side" — gun draw
-      loadFBX('/assets/models/strafe-left.fbx').catch(() => null),         // Mixamo "Strafe Left"
-      loadFBX('/assets/models/strafe-right.fbx').catch(() => null),        // Mixamo "Walk Right" — strafe right
-      loadFBX('/assets/models/rifle-idle.fbx').catch(() => null),          // Mixamo "Rifle Idle" — MG idle stance
-      loadFBX('/assets/models/shoot-rifle.fbx').catch(() => null),         // Mixamo "Shoot Rifle" — MG firing while moving
-      loadFBX('/assets/models/put-back-weapon.fbx').catch(() => null),     // Mixamo "Put Back Rifle" — gun holster
-      loadFBX('/assets/models/pencil-idle.fbx').catch(() => null)          // Mixamo "Pencil Standing Idle" — pencil idle pose
+      loadFBX('/assets/models-glb/hit-stomach.glb').catch(() => null),   // Mixamo "Stomach Hit" — ranged hit
+      loadFBX('/assets/models-glb/hit-body.glb').catch(() => null),      // Mixamo "Hit To Body" — melee hit
+      loadFBX('/assets/models-glb/fight-idle.glb').catch(() => null),    // Mixamo "Fight Idle" — out-of-ammo stance
+      loadFBX('/assets/models-glb/fist-a.glb').catch(() => null),        // Mixamo "Fist Fight A" — A key punch
+      loadFBX('/assets/models-glb/fist-b.glb').catch(() => null),        // Mixamo "Fist Fight B" — B key punch
+      loadFBX('/assets/models-glb/enemy-outward-slash.glb').catch(() => null), // Mixamo "Outward Slash" — fallback for stab
+      loadFBX('/assets/models-glb/pistol-walk-backward.glb').catch(() => null), // Mixamo "Pistol Walk Backward Arc"
+      loadFBX('/assets/models-glb/stabbing.glb').catch(() => null),            // Mixamo "Stabbing" — pencil stab anim
+      loadFBX('/assets/models-glb/crouched-walking.glb').catch(() => null),    // Mixamo "Crouched Walking" — pencil walk
+      loadFBX('/assets/models-glb/death.glb').catch(() => null),               // Mixamo "Death" — player game-over anim
+      loadFBX('/assets/models-glb/mma-side-kick.glb').catch(() => null),       // Mixamo "MMA Side Kick" — fight mode space
+      loadFBX('/assets/models-glb/punching.glb').catch(() => null),            // Mixamo "Punching" — fight mode space
+      loadFBX('/assets/models-glb/fight-run.glb').catch(() => null),           // Mixamo "Running" — fight mode running anim
+      loadFBX('/assets/models-glb/running-backward.glb').catch(() => null),    // Mixamo "Running Backward" — backpedal while aiming
+      loadFBX('/assets/models-glb/grab-weapon.glb').catch(() => null),         // Mixamo "Grab Rifle From The Side" — gun draw
+      loadFBX('/assets/models-glb/strafe-left.glb').catch(() => null),         // Mixamo "Strafe Left"
+      loadFBX('/assets/models-glb/strafe-right.glb').catch(() => null),        // Mixamo "Walk Right" — strafe right
+      loadFBX('/assets/models-glb/rifle-idle.glb').catch(() => null),          // Mixamo "Rifle Idle" — MG idle stance
+      loadFBX('/assets/models-glb/shoot-rifle.glb').catch(() => null),         // Mixamo "Shoot Rifle" — MG firing while moving
+      loadFBX('/assets/models-glb/put-back-weapon.glb').catch(() => null),     // Mixamo "Put Back Rifle" — gun holster
+      loadFBX('/assets/models-glb/pencil-idle.glb').catch(() => null)          // Mixamo "Pencil Standing Idle" — pencil idle pose
     ]).then(args => this._handleJoeLoaded(...args))
   }
 
