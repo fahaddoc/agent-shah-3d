@@ -144,36 +144,4 @@ html, body {
 .briefing-body .stat .num { font-size: 28px; color: var(--amber); display: block; }
 .briefing-body .stat .lbl { font-size: 10px; letter-spacing: 2px; color: var(--cyan); }
 
-#loader {
-  position: fixed; inset: 0;
-  background: var(--bg);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 18px;
-  z-index: 100;
-  transition: opacity 0.6s ease;
-}
-
-#loader.gone { opacity: 0; pointer-events: none; }
-
-.loader-text {
-  color: var(--cyan);
-  letter-spacing: 6px;
-  font-size: 14px;
-  text-shadow: 0 0 12px var(--cyan);
-}
-
-.loader-bar {
-  width: 280px; height: 6px;
-  background: rgba(0, 255, 255, 0.15);
-  border: 1px solid rgba(0, 255, 255, 0.4);
-}
-
-.loader-fill {
-  width: 0%; height: 100%;
-  background: var(--cyan);
-  box-shadow: 0 0 10px var(--cyan);
-  transition: width 0.3s ease;
-}
-
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');

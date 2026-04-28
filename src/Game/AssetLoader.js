@@ -1,5 +1,6 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 
 export class AssetLoader {
   constructor() {
@@ -7,6 +8,7 @@ export class AssetLoader {
     this.draco = new DRACOLoader()
     this.draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/')
     this.gltf.setDRACOLoader(this.draco)
+    this.gltf.setMeshoptDecoder(MeshoptDecoder)
     this.cache = new Map()
   }
 

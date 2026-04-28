@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { loadGlbCached as loadFbxCached } from './glbCache.js'
 
@@ -372,6 +373,7 @@ export class Player {
   async _tryLoadGLB() {
     const loader = new GLTFLoader()
     loader.setDRACOLoader(SHARED_DRACO)
+    loader.setMeshoptDecoder(MeshoptDecoder)
 
     // If custom avatar URL provided, load it + retarget animations from Soldier
     if (PLAYER_AVATAR_URL) {

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { loadGlbCached as loadFbxCached } from './glbCache.js'
 
@@ -63,6 +64,7 @@ export class Enemy {
   _tryLoadGLB() {
     const loader = new GLTFLoader()
     loader.setDRACOLoader(ENEMY_DRACO)
+    loader.setMeshoptDecoder(MeshoptDecoder)
     const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
     const loadFBX = (url) => loadFbxCached(url)
     return Promise.all([
