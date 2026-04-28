@@ -1,0 +1,5 @@
+node_modules
+public/assets/models/*.fbx
+public/assets/pistol-starter
+.fbx2gltf-tmp
+docs

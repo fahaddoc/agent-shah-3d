@@ -591,6 +591,19 @@ export class WarehouseWorld {
     for (const w of this._walls) physics.addStaticBox(w.mesh, w.w, w.h, w.d)
   }
 
+  // Block the south door gap with an invisible collider once the player is in.
+  // Door visual still slides open on proximity, but player can't pass through.
+  sealDoor(physics) {
+    if (this._doorSealed) return
+    this._doorSealed = true
+    const wallH = 6
+    const wallT = 0.6
+    physics.addStaticBox(
+      { position: { x: 0, y: wallH / 2, z: this.halfSize }, uuid: 'door-seal' },
+      this.doorWidth, wallH, wallT
+    )
+  }
+
   spawnHitImpact(x, y, z, hitDir = null) {
     const flash = new THREE.Mesh(
       new THREE.SphereGeometry(0.28, 10, 8),

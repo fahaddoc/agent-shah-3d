@@ -6,6 +6,9 @@ dist
 
 # Mixamo FBX assets — too large for git (110MB+). Convert to GLB before committing.
 public/assets/models/*.fbx
+public/assets/models/*.fbm
+.fbx2gltf-tmp
 
 # Pistol starter pack (~58MB FBX/textures) — bundled separately
 public/assets/pistol-starter/
+.vercel

@@ -1,5 +1,4 @@
 import { PROFILE, SKILLS, PROJECTS, EXPERIENCE } from '../data/portfolio.js'
-import { fbxProgress } from './fbxCache.js'
 
 export class UI {
   constructor() {
@@ -9,8 +8,6 @@ export class UI {
     this.hint = document.getElementById('hud-hint')
     this.sectorName = document.getElementById('sector-name')
     this.weaponName = document.getElementById('weapon-name')
-    this.loader = document.getElementById('loader')
-    this.loaderFill = document.getElementById('loader-fill')
 
     document.getElementById('briefing-close').addEventListener('click', () => this.closeBriefing())
     window.addEventListener('keydown', (e) => {
@@ -26,18 +23,8 @@ export class UI {
   setSector(name) { this.sectorName.textContent = name }
   setWeapon(w) { this.weaponName.textContent = w }
 
-  setLoaderProgress() {
-    if (!this.loaderFill) return
-    const p = Math.max(0.05, Math.min(0.95, fbxProgress()))
-    this.loaderFill.style.width = `${(p * 100).toFixed(0)}%`
-  }
-
-  finishLoader() {
-    if (!this.loader) return
-    this.loaderFill.style.width = '100%'
-    setTimeout(() => this.loader.classList.add('gone'), 400)
-    setTimeout(() => this.loader.remove(), 1200)
-  }
+  setLoaderProgress() {}
+  finishLoader() {}
 
   showBriefing(section) {
     this.briefingBody.innerHTML = this._renderSection(section)

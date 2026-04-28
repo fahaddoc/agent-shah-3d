@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { loadFbxCached } from './fbxCache.js'
+import { loadGlbCached as loadFbxCached } from './glbCache.js'
 
 // Shared DRACO decoder (needed for Mixamo-compressed GLBs)
 const SHARED_DRACO = new DRACOLoader()
@@ -372,6 +373,7 @@ export class Player {
   async _tryLoadGLB() {
     const loader = new GLTFLoader()
     loader.setDRACOLoader(SHARED_DRACO)
+    loader.setMeshoptDecoder(MeshoptDecoder)
 
     // If custom avatar URL provided, load it + retarget animations from Soldier
     if (PLAYER_AVATAR_URL) {
@@ -398,27 +400,27 @@ export class Player {
       loadGLB('/assets/models/anim-knife-walk.glb').catch(() => null),
       loadGLB('/assets/models/anim-knife-idle.glb').catch(() => null),
       loadGLB('/assets/models/anim-takedown.glb').catch(() => null),
-      loadFBX('/assets/models/hit-stomach.fbx').catch(() => null),   // Mixamo "Stomach Hit" — ranged hit
-      loadFBX('/assets/models/hit-body.fbx').catch(() => null),      // Mixamo "Hit To Body" — melee hit
-      loadFBX('/assets/models/fight-idle.fbx').catch(() => null),    // Mixamo "Fight Idle" — out-of-ammo stance
-      loadFBX('/assets/models/fist-a.fbx').catch(() => null),        // Mixamo "Fist Fight A" — A key punch
-      loadFBX('/assets/models/fist-b.fbx').catch(() => null),        // Mixamo "Fist Fight B" — B key punch
-      loadFBX('/assets/models/enemy-outward-slash.fbx').catch(() => null), // Mixamo "Outward Slash" — fallback for stab
-      loadFBX('/assets/models/pistol-walk-backward.fbx').catch(() => null), // Mixamo "Pistol Walk Backward Arc"
-      loadFBX('/assets/models/stabbing.fbx').catch(() => null),            // Mixamo "Stabbing" — pencil stab anim
-      loadFBX('/assets/models/crouched-walking.fbx').catch(() => null),    // Mixamo "Crouched Walking" — pencil walk
-      loadFBX('/assets/models/death.fbx').catch(() => null),               // Mixamo "Death" — player game-over anim
-      loadFBX('/assets/models/mma-side-kick.fbx').catch(() => null),       // Mixamo "MMA Side Kick" — fight mode space
-      loadFBX('/assets/models/punching.fbx').catch(() => null),            // Mixamo "Punching" — fight mode space
-      loadFBX('/assets/models/fight-run.fbx').catch(() => null),           // Mixamo "Running" — fight mode running anim
-      loadFBX('/assets/models/running-backward.fbx').catch(() => null),    // Mixamo "Running Backward" — backpedal while aiming
-      loadFBX('/assets/models/grab-weapon.fbx').catch(() => null),         // Mixamo "Grab Rifle From The Side" — gun draw
-      loadFBX('/assets/models/strafe-left.fbx').catch(() => null),         // Mixamo "Strafe Left"
-      loadFBX('/assets/models/strafe-right.fbx').catch(() => null),        // Mixamo "Walk Right" — strafe right
-      loadFBX('/assets/models/rifle-idle.fbx').catch(() => null),          // Mixamo "Rifle Idle" — MG idle stance
-      loadFBX('/assets/models/shoot-rifle.fbx').catch(() => null),         // Mixamo "Shoot Rifle" — MG firing while moving
-      loadFBX('/assets/models/put-back-weapon.fbx').catch(() => null),     // Mixamo "Put Back Rifle" — gun holster
-      loadFBX('/assets/models/pencil-idle.fbx').catch(() => null)          // Mixamo "Pencil Standing Idle" — pencil idle pose
+      loadFBX('/assets/models-glb/hit-stomach.glb').catch(() => null),   // Mixamo "Stomach Hit" — ranged hit
+      loadFBX('/assets/models-glb/hit-body.glb').catch(() => null),      // Mixamo "Hit To Body" — melee hit
+      loadFBX('/assets/models-glb/fight-idle.glb').catch(() => null),    // Mixamo "Fight Idle" — out-of-ammo stance
+      loadFBX('/assets/models-glb/fist-a.glb').catch(() => null),        // Mixamo "Fist Fight A" — A key punch
+      loadFBX('/assets/models-glb/fist-b.glb').catch(() => null),        // Mixamo "Fist Fight B" — B key punch
+      loadFBX('/assets/models-glb/enemy-outward-slash.glb').catch(() => null), // Mixamo "Outward Slash" — fallback for stab
+      loadFBX('/assets/models-glb/pistol-walk-backward.glb').catch(() => null), // Mixamo "Pistol Walk Backward Arc"
+      loadFBX('/assets/models-glb/stabbing.glb').catch(() => null),            // Mixamo "Stabbing" — pencil stab anim
+      loadFBX('/assets/models-glb/crouched-walking.glb').catch(() => null),    // Mixamo "Crouched Walking" — pencil walk
+      loadFBX('/assets/models-glb/death.glb').catch(() => null),               // Mixamo "Death" — player game-over anim
+      loadFBX('/assets/models-glb/mma-side-kick.glb').catch(() => null),       // Mixamo "MMA Side Kick" — fight mode space
+      loadFBX('/assets/models-glb/punching.glb').catch(() => null),            // Mixamo "Punching" — fight mode space
+      loadFBX('/assets/models-glb/fight-run.glb').catch(() => null),           // Mixamo "Running" — fight mode running anim
+      loadFBX('/assets/models-glb/running-backward.glb').catch(() => null),    // Mixamo "Running Backward" — backpedal while aiming
+      loadFBX('/assets/models-glb/grab-weapon.glb').catch(() => null),         // Mixamo "Grab Rifle From The Side" — gun draw
+      loadFBX('/assets/models-glb/strafe-left.glb').catch(() => null),         // Mixamo "Strafe Left"
+      loadFBX('/assets/models-glb/strafe-right.glb').catch(() => null),        // Mixamo "Walk Right" — strafe right
+      loadFBX('/assets/models-glb/rifle-idle.glb').catch(() => null),          // Mixamo "Rifle Idle" — MG idle stance
+      loadFBX('/assets/models-glb/shoot-rifle.glb').catch(() => null),         // Mixamo "Shoot Rifle" — MG firing while moving
+      loadFBX('/assets/models-glb/put-back-weapon.glb').catch(() => null),     // Mixamo "Put Back Rifle" — gun holster
+      loadFBX('/assets/models-glb/pencil-idle.glb').catch(() => null)          // Mixamo "Pencil Standing Idle" — pencil idle pose
     ]).then(args => this._handleJoeLoaded(...args))
   }
 
@@ -919,7 +921,28 @@ export class Player {
       this.physicsCtrl.computeColliderMovement(this.physicsCollider, desired)
       const corrected = this.physicsCtrl.computedMovement()
       const t = this.physicsBody.translation()
-      const next = { x: t.x + corrected.x, y: t.y + corrected.y, z: t.z + corrected.z }
+      let nx = t.x + corrected.x
+      let nz = t.z + corrected.z
+      // Hard-clamp to playable arena (union of rectangles) — belt-and-suspenders
+      // in case any collider has a gap. Each rect = {minX,maxX,minZ,maxZ}.
+      const rects = this.arenaBounds?.rects
+      if (rects && rects.length) {
+        let inside = false
+        for (const r of rects) {
+          if (nx >= r.minX && nx <= r.maxX && nz >= r.minZ && nz <= r.maxZ) { inside = true; break }
+        }
+        if (!inside) {
+          let bestD = Infinity, bx = nx, bz = nz
+          for (const r of rects) {
+            const cx = nx < r.minX ? r.minX : (nx > r.maxX ? r.maxX : nx)
+            const cz = nz < r.minZ ? r.minZ : (nz > r.maxZ ? r.maxZ : nz)
+            const d = (nx - cx) * (nx - cx) + (nz - cz) * (nz - cz)
+            if (d < bestD) { bestD = d; bx = cx; bz = cz }
+          }
+          nx = bx; nz = bz
+        }
+      }
+      const next = { x: nx, y: t.y + corrected.y, z: nz }
       this.physicsBody.setNextKinematicTranslation(next)
       // Sync visual position (subtract 0.9 capsule offset to put feet on ground)
       this.position.set(next.x, next.y - 0.9, next.z)
@@ -1072,8 +1095,51 @@ export class Player {
     }
     this.autoAimTarget = target
 
+    // Mouse-aim: only while LEFT mouse is held. First check if the cursor ray
+    // passes near any alive enemy → snap to that enemy (so a click on the
+    // enemy's body actually hits them, not the ground behind). Otherwise fall
+    // back to projecting cursor onto the ground plane.
+    let mouseAimX = 0, mouseAimZ = 0, mouseAimActive = false
+    if (inputs.mouse?.down && raycaster && groundPlane) {
+      const cam = window.__GAME__?.camera?.instance
+      if (cam) {
+        raycaster.setFromCamera({ x: inputs.mouse.ndcX, y: inputs.mouse.ndcY }, cam)
+        // 1) Snap-aim: closest alive enemy whose center is within ENEMY_PICK_R
+        //    of the ray (3D distance from ray to point).
+        const ENEMY_PICK_R = 1.4
+        let snapEnemy = null
+        let snapDist = ENEMY_PICK_R
+        const tmp = new THREE.Vector3()
+        for (const en of enemies) {
+          if (!en.alive) continue
+          // Use enemy chest height (~1.2) so the ray-to-point distance is fair
+          tmp.set(en.position.x, en.position.y + 1.2, en.position.z)
+          const d = raycaster.ray.distanceToPoint(tmp)
+          if (d < snapDist) { snapDist = d; snapEnemy = en }
+        }
+        if (snapEnemy) {
+          mouseAimX = snapEnemy.position.x - this.position.x
+          mouseAimZ = snapEnemy.position.z - this.position.z
+          mouseAimActive = true
+        } else {
+          // 2) Ground-plane fallback. Reject hits behind the camera.
+          const hit = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3())
+          if (hit) {
+            const dx = hit.x - this.position.x
+            const dz = hit.z - this.position.z
+            if (Math.hypot(dx, dz) > 0.8) {
+              mouseAimX = dx; mouseAimZ = dz
+              mouseAimActive = true
+            }
+          }
+        }
+      }
+    }
+
     let aimX, aimZ
-    if (target) {
+    if (mouseAimActive) {
+      aimX = mouseAimX; aimZ = mouseAimZ
+    } else if (target) {
       aimX = target.position.x - this.position.x
       aimZ = target.position.z - this.position.z
     } else if (moving) {
@@ -1093,9 +1159,12 @@ export class Player {
     // Determine fire intent first (affects facing)
     const wantFire = inputs.mouse.down || inputs.isDown(' ') || inputs.isDown('spacebar')
 
-    // Facing: movement direction when moving, else aim (auto-target); mouse ignored
+    // Facing: mouse-aim wins (so the character spins to where the player clicks),
+    // then auto-target, then movement, else hold last.
     let desiredYaw
-    if (target) {
+    if (mouseAimActive) {
+      desiredYaw = Math.atan2(aimX, aimZ) + Math.PI
+    } else if (target) {
       desiredYaw = Math.atan2(aimX, aimZ) + Math.PI
     } else if (moving) {
       desiredYaw = Math.atan2(this.velocity.x, this.velocity.z) + Math.PI

@@ -3,7 +3,7 @@ export class Inputs {
     this.canvas = canvas
     this.keys = new Set()
     this.justPressed = new Set()
-    this.mouse = { x: 0, y: 0, ndcX: 0, ndcY: 0, down: false }
+    this.mouse = { x: 0, y: 0, ndcX: 0, ndcY: 0, down: false, movedAt: 0, seen: false }
 
     window.addEventListener('keydown', (e) => {
       const k = e.key.toLowerCase()
@@ -17,6 +17,8 @@ export class Inputs {
       this.mouse.y = e.clientY
       this.mouse.ndcX = (e.clientX / window.innerWidth) * 2 - 1
       this.mouse.ndcY = -(e.clientY / window.innerHeight) * 2 + 1
+      this.mouse.seen = true
+      this.mouse.movedAt = performance.now()
     }
     window.addEventListener('mousemove', updateMouse)
     window.addEventListener('mousedown', (e) => { updateMouse(e); this.mouse.down = true })

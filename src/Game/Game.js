@@ -65,17 +65,18 @@ export class Game {
       ])
     ]
 
-    // No cinematic — player spawns just outside door, controls active immediately
+    // No cinematic — player spawns on the entry road outside the south gate
     this.phase = PHASE.PLAY
     const halfSize = this.world.halfSize
-    this.player.position.set(0, 0, halfSize + 4)
+    const spawnZ = halfSize + 12   // mid-corridor, 12 units south of door
+    this.player.position.set(0, 0, spawnZ)
     this.player.group.position.copy(this.player.position)
     this.player.aim.set(0, 0, -1)
     this.player.group.rotation.y = 0
-    // Camera behind player
+    // Camera behind player (further south)
     this.camera.setInstant(
-      new THREE.Vector3(0, this.camera.height, halfSize + 4 + this.camera.distance),
-      new THREE.Vector3(0, 1.4, halfSize + 4)
+      new THREE.Vector3(0, this.camera.height, spawnZ + this.camera.distance),
+      new THREE.Vector3(0, 1.4, spawnZ)
     )
     this.world.setDoorOpen(0)
 
@@ -88,6 +89,18 @@ export class Game {
     if (this.world.ready) await this.world.ready
     this.world.registerColliders(this.physics)
     this.player.registerPhysics(this.physics)
+    // Hard arena bounds — union of warehouse interior and the south entry road.
+    // Walls already block N/E/W and the inner south wall segments; this catches
+    // anywhere the player could otherwise drift into the void.
+    const hs = this.world.halfSize
+    if (hs) {
+      this.player.arenaBounds = {
+        rects: [
+          { minX: -hs + 1, maxX: hs - 1, minZ: -hs + 1, maxZ: hs - 1 },     // warehouse interior
+          { minX: -3.5,    maxX: 3.5,    minZ: hs - 1,  maxZ: hs + 17.5 }   // entry road / asphalt pad
+        ]
+      }
+    }
     // Live progress while heavy FBX clips load — keep loader visible until ready.
     // Use Promise.allSettled + per-promise catch so a single bad clip can't block the game.
     const tick = setInterval(() => this.ui.setLoaderProgress(), 100)
@@ -170,6 +183,7 @@ export class Game {
     // End intro when player reaches target
     if (this.player.position.z <= targetZ + 0.05) {
       this.world.setDoorOpen(1)
+      this.world.sealDoor?.(this.physics)
       this.phase = PHASE.PLAY
       this.ui.setHint('WASD move · MOUSE/SPACE shoot · F stealth-kill')
     }
