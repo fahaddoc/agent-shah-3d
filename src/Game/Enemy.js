@@ -4,6 +4,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { loadGlbCached as loadFbxCached } from './glbCache.js'
+import { audio } from './Audio.js'
 
 const ENEMY_DRACO = new DRACOLoader()
 ENEMY_DRACO.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
@@ -1078,6 +1079,7 @@ export class Enemy {
   takeDamage(n, allEnemies, hitDir = null, type = 'ranged') {
     if (!this.alive) return
     this.hp -= n
+    audio.hit(type === 'melee' ? 1.2 : 1)
     // Visible hit indicator — red spark burst at chest height
     const world = window.__GAME__?.world
     if (world?.spawnHitImpact) {
@@ -1123,6 +1125,7 @@ export class Enemy {
 
   die(hitDir = null) {
     this.alive = false
+    audio.enemyDeath()
     this.hpBar.visible = false
     this.visionMesh.visible = false
     this.alertIcon.visible = false

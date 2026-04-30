@@ -31,33 +31,66 @@ export class WarehouseWorld {
     this._buildNeonSign()
     this._buildHangingLamps()
     this._buildCorridor()
+    this._buildExitPortal()
   }
 
   _buildLights() {
-    // Bright cool base + cyan/amber accents (matches HUD theme)
-    this.scene.add(new THREE.AmbientLight(0xc0d0e8, 1.3))
-    this.scene.add(new THREE.HemisphereLight(0xd0e0ff, 0x1a2435, 1.1))
+    // Bright cool base + cyan/amber accents (matches HUD theme).
+    // Lights stored on `this` so setSectorTheme() can retint per sector.
+    this._ambientLight = new THREE.AmbientLight(0xc0d0e8, 1.3)
+    this.scene.add(this._ambientLight)
+    this._hemiLight = new THREE.HemisphereLight(0xd0e0ff, 0x1a2435, 1.1)
+    this.scene.add(this._hemiLight)
 
-    const key = new THREE.DirectionalLight(0xe0eeff, 2.4)
-    key.position.set(8, 24, 6)
-    key.castShadow = true
-    key.shadow.mapSize.set(1024, 1024)
-    key.shadow.camera.left = -30
-    key.shadow.camera.right = 30
-    key.shadow.camera.top = 30
-    key.shadow.camera.bottom = -30
-    key.shadow.bias = -0.0005
-    this.scene.add(key)
+    this._keyLight = new THREE.DirectionalLight(0xe0eeff, 2.4)
+    this._keyLight.position.set(8, 24, 6)
+    this._keyLight.castShadow = true
+    this._keyLight.shadow.mapSize.set(1024, 1024)
+    this._keyLight.shadow.camera.left = -30
+    this._keyLight.shadow.camera.right = 30
+    this._keyLight.shadow.camera.top = 30
+    this._keyLight.shadow.camera.bottom = -30
+    this._keyLight.shadow.bias = -0.0005
+    this.scene.add(this._keyLight)
 
     // Amber rim — warm pop opposing the cool key
-    const fill = new THREE.DirectionalLight(0xffc880, 0.85)
-    fill.position.set(-12, 14, -8)
-    this.scene.add(fill)
+    this._fillLight = new THREE.DirectionalLight(0xffc880, 0.85)
+    this._fillLight.position.set(-12, 14, -8)
+    this.scene.add(this._fillLight)
 
     // Center spotlight over arena
-    const center = new THREE.PointLight(0xffffff, 1.4, 32)
-    center.position.set(0, 8, 0)
-    this.scene.add(center)
+    this._centerLight = new THREE.PointLight(0xffffff, 1.4, 32)
+    this._centerLight.position.set(0, 8, 0)
+    this.scene.add(this._centerLight)
+  }
+
+  // Retint scene per sector. Themes are deliberate visual signals so each room
+  // reads as a fresh location without a full rebuild.
+  setSectorTheme(idx) {
+    const THEMES = [
+      // 0: BRIEFING — current cyan/navy (default at construction)
+      { fog: 0x0a1220, ambient: 0xc0d0e8, hemiTop: 0xd0e0ff, hemiBot: 0x1a2435, key: 0xe0eeff, fill: 0xffc880 },
+      // 1: DOSSIER — amber/danger
+      { fog: 0x1a0d05, ambient: 0xe8c098, hemiTop: 0xffd8a0, hemiBot: 0x352010, key: 0xffe0b0, fill: 0xff5530 },
+      // 2: ARSENAL — green tech
+      { fog: 0x051810, ambient: 0xa0e0c0, hemiTop: 0xb0ffd0, hemiBot: 0x102820, key: 0xd8ffd8, fill: 0x40c080 },
+      // 3: ARCHIVES — purple/magenta
+      { fog: 0x12081a, ambient: 0xc0a0e0, hemiTop: 0xd0b0ff, hemiBot: 0x281a35, key: 0xe8d0ff, fill: 0xff60c0 },
+      // 4: HISTORY — red oxide
+      { fog: 0x180605, ambient: 0xe09098, hemiTop: 0xffa0a8, hemiBot: 0x301015, key: 0xffd8d0, fill: 0xff3030 },
+      // 5: EXTRACTION — gold/cyan
+      { fog: 0x10120a, ambient: 0xe0d490, hemiTop: 0xfff0a0, hemiBot: 0x282818, key: 0xfff4c0, fill: 0x00ffff },
+    ]
+    const t = THEMES[Math.max(0, Math.min(THEMES.length - 1, idx))]
+    if (this.scene.fog) this.scene.fog.color.setHex(t.fog)
+    this.scene.background = new THREE.Color(t.fog)
+    if (this._ambientLight) this._ambientLight.color.setHex(t.ambient)
+    if (this._hemiLight) {
+      this._hemiLight.color.setHex(t.hemiTop)
+      this._hemiLight.groundColor.setHex(t.hemiBot)
+    }
+    if (this._keyLight) this._keyLight.color.setHex(t.key)
+    if (this._fillLight) this._fillLight.color.setHex(t.fill)
   }
 
   _buildFloor() {
@@ -126,13 +159,15 @@ export class WarehouseWorld {
       return m
     }
 
-    mkWall(halfSize * 2 + wallT, wallT, 0, -halfSize)            // north
     mkWall(wallT, halfSize * 2 + wallT,  halfSize, 0)             // east
     mkWall(wallT, halfSize * 2 + wallT, -halfSize, 0)             // west
-    // South wall split with door
+    // South wall split with entry door
     const segLen = (halfSize * 2 + wallT - this.doorWidth) / 2
     mkWall(segLen, wallT, -(this.doorWidth / 2 + segLen / 2), halfSize)
     mkWall(segLen, wallT,  (this.doorWidth / 2 + segLen / 2), halfSize)
+    // North wall split with exit door
+    mkWall(segLen, wallT, -(this.doorWidth / 2 + segLen / 2), -halfSize)
+    mkWall(segLen, wallT,  (this.doorWidth / 2 + segLen / 2), -halfSize)
   }
 
   _buildDoor() {
@@ -169,6 +204,31 @@ export class WarehouseWorld {
     this.scene.add(this.doorR)
     this.doorClosedX = this.doorWidth / 4
     this.doorOpenX = this.doorWidth / 4 + (this.doorWidth / 2)
+
+    // AS logo split across the two door panels — shows "AS" when closed,
+    // splits A↔S as the door slides open. Same image, two textures with
+    // mirrored UV offsets.
+    const logoTexL = new THREE.TextureLoader().load('/favicon-512.png')
+    const logoTexR = new THREE.TextureLoader().load('/favicon-512.png')
+    logoTexL.colorSpace = THREE.SRGBColorSpace
+    logoTexR.colorSpace = THREE.SRGBColorSpace
+    // Each plane shows half the image
+    logoTexL.repeat.set(0.5, 1)
+    logoTexL.offset.set(0, 0)
+    logoTexR.repeat.set(0.5, 1)
+    logoTexR.offset.set(0.5, 0)
+    const logoSizeW = this.doorWidth / 2 - 0.1   // fit panel width
+    const logoSizeH = logoSizeW * 2               // 2:1 because each plane gets half a square texture
+    const yLocal = -((wallH - 0.5) / 2 - 2.4)     // center logo around y≈2.4 world
+    const zLocal = 0.21                           // pop out of door surface, exterior side
+    const planeMatL = new THREE.MeshBasicMaterial({ map: logoTexL, transparent: true })
+    const planeMatR = new THREE.MeshBasicMaterial({ map: logoTexR, transparent: true })
+    const logoL = new THREE.Mesh(new THREE.PlaneGeometry(logoSizeW, logoSizeH), planeMatL)
+    logoL.position.set(0, yLocal, zLocal)
+    this.doorL.add(logoL)
+    const logoR = new THREE.Mesh(new THREE.PlaneGeometry(logoSizeW, logoSizeH), planeMatR)
+    logoR.position.set(0, yLocal, zLocal)
+    this.doorR.add(logoR)
 
     // Red warning beacon above door (alarm tone)
     const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), accentMat)
@@ -461,54 +521,113 @@ export class WarehouseWorld {
   }
 
   _buildNeonSign() {
-    // AGENT SHAH FAHAD badge on far wall — matches HUD badge style
-    const c = document.createElement('canvas')
-    c.width = 1024; c.height = 384
-    const ctx = c.getContext('2d')
-    ctx.fillStyle = '#070b14'
-    ctx.fillRect(0, 0, 1024, 384)
-
-    // Cyan border frame (matches HUD badge)
-    ctx.strokeStyle = '#00ffff'
-    ctx.lineWidth = 4
-    ctx.strokeRect(40, 40, 944, 304)
-    ctx.lineWidth = 1
-    ctx.globalAlpha = 0.4
-    ctx.strokeRect(50, 50, 924, 284)
-    ctx.globalAlpha = 1
-
-    // "AGENT" amber tracking
-    ctx.font = 'bold 56px "Share Tech Mono", monospace'
-    ctx.fillStyle = '#ffb800'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.letterSpacing = '12px'
-    ctx.fillText('A G E N T', 512, 130)
-
-    // "SHAH FAHAD" cyan glow
-    ctx.font = 'bold 140px "Share Tech Mono", monospace'
-    ctx.fillStyle = '#00ffff'
-    ctx.shadowColor = '#00ffff'
-    ctx.shadowBlur = 20
-    ctx.fillText('SHAH  FAHAD', 512, 250)
-    ctx.shadowBlur = 0
-
-    const tex = new THREE.CanvasTexture(c)
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(10, 3.75),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: false })
-    )
-    sign.position.set(0, 4.2, -this.halfSize + 0.4)
-    this.scene.add(sign)
-
-    // Cyan glow light behind sign
+    // Back-wall AS sign moved onto the entry door. Keep the accent lights so
+    // the back wall still has its cyan/amber atmospheric glow.
     const signLight = new THREE.PointLight(0x00ffff, 1.4, 16)
     signLight.position.set(0, 4.2, -this.halfSize + 1.5)
     this.scene.add(signLight)
-    // Amber rim from below
     const amberRim = new THREE.PointLight(0xffb800, 0.9, 10)
     amberRim.position.set(0, 2.8, -this.halfSize + 1.2)
     this.scene.add(amberRim)
+  }
+
+  _buildExitPortal() {
+    // North-side exit door — mirror of entry door. Closed by default; opens
+    // after briefing read. Player walks through to advance the sector.
+    const wallH = 6
+    const segMat = new THREE.MeshStandardMaterial({
+      color: 0x10181f, metalness: 0.7, roughness: 0.4,
+      emissive: 0x002233, emissiveIntensity: 0.5
+    })
+
+    // Frame header
+    const header = new THREE.Mesh(
+      new THREE.BoxGeometry(this.doorWidth + 0.6, 0.5, 0.7),
+      new THREE.MeshStandardMaterial({ color: 0x080c14, roughness: 0.6, metalness: 0.5 })
+    )
+    header.position.set(0, wallH - 0.25, -this.halfSize)
+    this.scene.add(header)
+    this._walls.push({ mesh: header, w: this.doorWidth + 0.6, h: 0.5, d: 0.7 })
+
+    // Sliding panels
+    const half = new THREE.Mesh(
+      new THREE.BoxGeometry(this.doorWidth / 2 - 0.05, wallH - 0.5, 0.4),
+      segMat
+    )
+    this.exitDoorL = half.clone()
+    this.exitDoorL.position.set(-this.doorWidth / 4, (wallH - 0.5) / 2, -this.halfSize)
+    this.scene.add(this.exitDoorL)
+    this.exitDoorR = half.clone()
+    this.exitDoorR.position.set( this.doorWidth / 4, (wallH - 0.5) / 2, -this.halfSize)
+    this.scene.add(this.exitDoorR)
+    this.exitDoorClosedX = this.doorWidth / 4
+    this.exitDoorOpenX = this.doorWidth / 4 + (this.doorWidth / 2)
+    this.exitDoorOpen = 0
+
+    // Cyan frame uprights — match entry door
+    const upMat = new THREE.MeshBasicMaterial({ color: 0x00ffff })
+    const upL = new THREE.Mesh(new THREE.BoxGeometry(0.12, wallH - 0.5, 0.12), upMat)
+    upL.position.set(-this.doorWidth / 2, (wallH - 0.5) / 2, -this.halfSize)
+    this.scene.add(upL)
+    const upR = upL.clone()
+    upR.position.x = this.doorWidth / 2
+    this.scene.add(upR)
+
+    // North exit door is intentionally PLAIN (no AS logo) — the AS branding
+    // belongs only on the south entry door so the player can tell them apart.
+
+    // Cyan glow above exit beacon to draw the player toward it once armed
+    this._exitBeacon = new THREE.PointLight(0x00ffff, 0.0, 14)
+    this._exitBeacon.position.set(0, wallH + 0.4, -this.halfSize + 0.5)
+    this.scene.add(this._exitBeacon)
+  }
+
+  setExitDoorTarget(open01) {
+    this._exitDoorTarget = Math.max(0, Math.min(1, open01))
+  }
+
+  // Which side of the warehouse is the *current* sector's exit. Either door
+  // can be the exit; they alternate per sector so the player walks through
+  // continuously instead of doubling back.
+  setExitSide(side) {
+    this._exitSide = side === 'south' ? 'south' : 'north'
+  }
+
+  setExitOpen(open) {
+    this._exitArmed = !!open
+    if (this._exitSide === 'south') {
+      // South door is the entry-style sliding pair (this.door / doorL / doorR /
+      // doorOpen). Force-open it via doorOpen target and hide the auto-close.
+      this._southExitForceOpen = !!open
+    } else {
+      this.setExitDoorTarget(open ? 1 : 0)
+    }
+    if (this._exitBeacon) this._exitBeacon.intensity = (open && this._exitSide === 'north') ? 1.4 : 0
+    if (this._beaconLight) {
+      // Make the south red beacon turn cyan when south is the armed exit
+      this._beaconLight.color.setHex((open && this._exitSide === 'south') ? 0x00ffff : 0xff3355)
+      this._beaconLight.intensity = (open && this._exitSide === 'south') ? 1.6 : 1.6
+    }
+  }
+
+  // Smooth-slide the exit door each frame toward target. Game.js calls this in _tick.
+  updateExitDoor(delta) {
+    if (this.exitDoorL == null) return
+    const target = this._exitDoorTarget || 0
+    const lerp = Math.min(delta * 2.5, 1)
+    this.exitDoorOpen += (target - this.exitDoorOpen) * lerp
+    const slide = (this.exitDoorOpenX - this.exitDoorClosedX) * this.exitDoorOpen
+    this.exitDoorL.position.x = -this.exitDoorClosedX - slide
+    this.exitDoorR.position.x =  this.exitDoorClosedX + slide
+  }
+
+  // True when player has reached the open exit doorway, on whichever side is armed.
+  isInExitPortal(x, z) {
+    if (!this._exitArmed) return false
+    if (this._exitSide === 'south') {
+      return z > (this.halfSize - 1.4) && Math.abs(x) < (this.doorWidth / 2 + 0.3)
+    }
+    return z < (-this.halfSize + 1.4) && Math.abs(x) < (this.doorWidth / 2 + 0.3)
   }
 
   _buildHangingLamps() {
