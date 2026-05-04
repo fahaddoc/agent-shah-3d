@@ -114,7 +114,117 @@ export class Game {
     clearInterval(tick)
     this.ui.finishLoader()
     this.ui.setHint('INFILTRATING SECTOR 01…')
+    // Every round: south entry, north exit. Player walks south→north.
+    this.world.setExitSide('north')
+    // Briefing-close → open exit portal + refill 1 mag of each ranged weapon.
+    // Player must walk through the portal to actually advance — no auto-jump.
+    this.ui.onBriefingClosed = () => {
+      if (this._briefingViewed) {
+        this._briefingViewed = false
+        this._refillAmmo()
+        this._exitPortalArmed = true
+        this.world.setExitOpen(true)
+      }
+    }
     this.ticker.start()
+  }
+
+  _refillAmmo() {
+    if (!this.player) return
+    // 1 magazine of each ranged weapon — capped at maxAmmo.
+    const max = this.player.maxAmmo || {}
+    const a = this.player.ammo
+    if (a.pistol !== undefined) {
+      a.pistol = Math.min((max.pistol || 6), (a.pistol || 0) + (max.pistol || 6))
+    }
+    if (a.machinegun !== undefined) {
+      a.machinegun = Math.min((max.machinegun || 30), (a.machinegun || 0) + (max.machinegun || 30))
+    }
+    // Restore weapon visibility for any slot we just topped up
+    if (this.player.weapons?.pistol) this.player.weapons.pistol.visible = (this.player.currentWeapon === 'pistol' && a.pistol > 0)
+    if (this.player.weapons?.machinegun) this.player.weapons.machinegun.visible = (this.player.currentWeapon === 'machinegun' && a.machinegun > 0)
+    this.player._updateWeaponHUD?.()
+  }
+
+  _advanceSector() {
+    const nextIdx = this.currentSectorIdx + 1
+    if (nextIdx >= SECTORS.length) {
+      this.ui.setHint('MISSION COMPLETE · ALL SECTORS CLEARED')
+      return
+    }
+    this.currentSectorIdx = nextIdx
+    this.sector = SECTORS[nextIdx]
+    this.ui.setSector(`0${this.sector.id} · ${this.sector.name}`)
+    this.ui.setWeapon(this.sector.weapon)
+    this.world.setSectorTheme(nextIdx)
+
+    // Despawn previous sector's enemies (alive + dead corpses + any sub-meshes
+    // they parented onto the scene). Walk all named handles defensively.
+    for (const e of this.enemies) {
+      for (const key of ['group', 'hpBar', 'visionMesh', 'alertIcon', 'pistolMesh', 'muzzle']) {
+        const obj = e[key]
+        if (obj && obj.parent === this.scene) this.scene.remove(obj)
+      }
+    }
+
+    // Spawn fresh wave biased to the NORTH half (player always enters south).
+    const count = 3 + nextIdx * 2   // sector 2 = 5, sector 3 = 7, etc.
+    const ringR = 9
+    const ringCenterZ = -4   // north of origin, between player and exit
+    this.enemies = []
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2
+      const cx = Math.cos(angle) * ringR
+      const cz = ringCenterZ + Math.sin(angle) * ringR
+      const home = new THREE.Vector3(cx, 0, cz)
+      const path = [
+        home.clone().add(new THREE.Vector3( 1.5, 0,  1.5)),
+        home.clone().add(new THREE.Vector3(-1.5, 0,  1.5)),
+        home.clone().add(new THREE.Vector3(-1.5, 0, -1.5)),
+        home.clone().add(new THREE.Vector3( 1.5, 0, -1.5)),
+      ]
+      this.enemies.push(new Enemy(this.scene, home, path))
+    }
+    Promise.allSettled(this.enemies.map(e => e.ready)).catch(() => {})
+
+    // Reset transition flags so sector N+1 starts clean
+    this._briefingViewed = false
+    this._exitPortalArmed = false
+    this.world.setExitOpen(false)
+    this.world._southExitForceOpen = false
+    // Snap the north exit door fully shut — no animated close on top of player.
+    this.world.exitDoorOpen = 0
+    this.world._exitDoorTarget = 0
+    if (this.world.exitDoorL) this.world.exitDoorL.position.x = -this.world.exitDoorClosedX
+    if (this.world.exitDoorR) this.world.exitDoorR.position.x =  this.world.exitDoorClosedX
+    // Every round repeats sector-1 flow: south entry, north exit.
+    this.world.setExitSide('north')
+
+    // Spawn at the south entry road — camera + WASD + view all match sector 1.
+    const halfSize = this.world.halfSize
+    const spawnZ = halfSize + 12
+    this.player.position.set(0, 0, spawnZ)
+    this.player.group.position.copy(this.player.position)
+    this.player.velocity?.set(0, 0, 0)         // kill carry-over drift from prior sector
+    // Hard-teleport the kinematic physics body too — otherwise the next frame
+    // re-syncs position from the body's old translation (north exit) and the
+    // player visually snaps back to the north door.
+    if (this.player.physicsBody) {
+      this.player.physicsBody.setTranslation(
+        { x: this.player.position.x, y: this.player.position.y + 0.9, z: this.player.position.z },
+        true
+      )
+    }
+    this.player.aim.set(0, 0, -1)
+    this.player.group.rotation.y = 0
+    this.camera.yaw = 0
+    this.camera.setInstant(
+      new THREE.Vector3(0, this.camera.height, spawnZ + this.camera.distance),
+      new THREE.Vector3(0, 1.4, spawnZ)
+    )
+    this.player.hp = this.player.maxHp
+    this.world.setDoorOpen(0)
+    this.ui.setHint(`INFILTRATING SECTOR 0${this.sector.id}…`)
   }
 
   _tick(delta, elapsed) {
@@ -200,9 +310,13 @@ export class Game {
     const halfSize = this.world.halfSize
     const distToDoor = Math.abs(this.player.position.z - halfSize)
     const openRadius = 6
-    const targetOpen = distToDoor < openRadius ? 1 - (distToDoor / openRadius) : 0
+    let targetOpen = distToDoor < openRadius ? 1 - (distToDoor / openRadius) : 0
+    // When south is the armed exit, force the south door fully open regardless of distance.
+    if (this.world._southExitForceOpen) targetOpen = 1
     const doorLerp = Math.min(delta * 3, 1)
     this.world.setDoorOpen(this.world.doorOpen + (targetOpen - this.world.doorOpen) * doorLerp)
+    // North exit door slide animation
+    this.world.updateExitDoor(delta)
 
     this.player.update(
       delta,
@@ -230,19 +344,29 @@ export class Game {
       if (en.isBehind(this.player.position, 1.8)) { stealthTarget = en; break }
     }
 
+    // Detect player walking into the open exit portal — actually advances sector.
+    if (this._exitPortalArmed && this.world.isInExitPortal(this.player.position.x, this.player.position.z)) {
+      this._exitPortalArmed = false
+      this.world.setExitOpen(false)
+      this._advanceSector()
+    }
+
     if (this.npc.inRange) {
       this.ui.setHint('PRESS [E] · READ BRIEFING')
       if (this.inputs.consumePress('e')) {
         this.ui.showBriefing(this.sector.section)
+        this._briefingViewed = true
       }
     } else if (stealthTarget) {
       this.ui.setHint('PRESS [F] · SILENT TAKEDOWN (no alert)')
       if (this.inputs.consumePress('f')) {
         stealthTarget.silentKill()
       }
+    } else if (this._exitPortalArmed) {
+      this.ui.setHint('AMMO RESUPPLIED · EXIT THROUGH THE NORTH DOOR')
     } else {
       const aliveLeft = this.enemies.filter(e => e.alive).length
-      this.ui.setHint(`WASD · SHOOT mouse/space · 1 pistol · 2 MG · 3 pencil · 4 fight (A/B punch) · F stealth · TARGETS: ${aliveLeft}`)
+      this.ui.setHint(`WASD · SHOOT mouse/space · 1 pistol · 2 MG · 3 pencil · 4 fight (V/B punch) · F stealth · M music · TARGETS: ${aliveLeft}`)
     }
 
     this.ui.setHealth(this.player.hp, this.player.maxHp)

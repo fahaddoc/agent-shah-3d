@@ -4,10 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agent Shah — Classified Portfolio</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" sizes="256x256" href="/favicon-256.png" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <canvas id="game"></canvas>
+
+    <div id="splash">
+      <img src="/favicon-256.png" alt="Agent Shah" class="splash-img" />
+      <div class="splash-tag">AGENT SHAH</div>
+    </div>
 
     <div id="hud">
       <div class="hud-top">
@@ -23,6 +31,7 @@
           <span class="hud-label">WEAPON</span>
           <span class="hud-value" id="weapon-name">PISTOL</span>
         </div>
+        <button id="music-toggle" class="hud-btn" title="Mute music (M)">♪ MUSIC</button>
       </div>
 
       <div class="hud-bottom">
@@ -35,13 +44,7 @@
     </div>
 
     <div id="briefing" class="hidden">
-      <div class="briefing-panel">
-        <div class="briefing-header">
-          <span class="stamp">TOP SECRET</span>
-          <button id="briefing-close">CLOSE [ESC]</button>
-        </div>
-        <div class="briefing-body" id="briefing-body"></div>
-      </div>
+      <div id="briefing-body"></div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

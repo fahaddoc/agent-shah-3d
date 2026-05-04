@@ -4,6 +4,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { loadGlbCached as loadFbxCached } from './glbCache.js'
+import { audio } from './Audio.js'
 
 // Shared DRACO decoder (needed for Mixamo-compressed GLBs)
 const SHARED_DRACO = new DRACOLoader()
@@ -818,6 +819,9 @@ export class Player {
 
   setWeapon(name) {
     if (!this.weapons) return
+    // Block selection of an ammo-having weapon that's been depleted —
+    // otherwise the slot equips with no visible weapon and zero output.
+    if (this.ammo[name] !== undefined && this.ammo[name] <= 0) return
     this.currentWeapon = name
     const empty = this.ammo[name] === 0
     for (const [key, mesh] of Object.entries(this.weapons)) {
@@ -1183,7 +1187,8 @@ export class Player {
     if (inputs.consumePress('4')) this.setWeapon('fight')
 
     // Fist combos — A / B keys. Each press is a 3-hit combo timed across the clip.
-    const punchA = inputs.consumePress('a')
+    // Punch keys moved off A (collided with WASD strafe-left); use V/B now.
+    const punchA = inputs.consumePress('v')
     const punchB = inputs.consumePress('b')
     if ((punchA || punchB) && !this._punching && !this._takedownActive && !this._hitReacting) {
       const clipName = punchA ? 'fistA' : 'fistB'
@@ -1348,6 +1353,7 @@ export class Player {
     }
     console.log('Stab: target =', target ? `enemy at ${bestDist.toFixed(2)}m` : 'NONE (air stab)', 'enemies alive:', enemies.filter(e => e.alive).length)
     // Play outward-slash anim regardless of target — visual feedback for the stab
+    audio.stab()
     if (this.actions?.stab) {
       this._punching = true   // reuse flag to block locomotion swap
       this._playOneShot('stab', 0.05)
@@ -1512,6 +1518,7 @@ export class Player {
   }
 
   shoot() {
+    audio.gunshot(this.currentWeapon)
     this.muzzle.getWorldPosition(this.muzzleWorld)
     const mesh = new THREE.Mesh(this.bulletGeo, this.bulletMat)
     mesh.position.copy(this.muzzleWorld)
@@ -1568,6 +1575,7 @@ export class Player {
     // Invincible while punching — combo absorbs incoming hits
     if (this._punching) return
     this.hp = Math.max(0, this.hp - n)
+    audio.playerHit()
     // Visible hit indicator at chest height
     const world = window.__GAME__?.world
     if (world?.spawnHitImpact) {
